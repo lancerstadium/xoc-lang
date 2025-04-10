@@ -57,7 +57,6 @@ struct xoc_type {
     };
 };
 
-
 struct xoc_types {
     bool is_enabled;
     type_t* head;
