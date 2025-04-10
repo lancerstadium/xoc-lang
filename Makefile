@@ -109,7 +109,7 @@ stats:
 	fi
 
 stats-diff:
-	@find src include -type f \( -name "*.c" -o -name "*.h" \) -exec wc -l {} + | \
+	@find $(SRC_DIR) $(INC_DIR) -type f \( -name "*.c" -o -name "*.h" \) -exec wc -l {} + | \
 	  awk '$$2 != "total" {print $$2,$$1}' | sort > .stats/current.txt
 	@echo "+---------------------------------+---------+---------+-------------+"
 	@echo "| File                            |   Old   |   New   |   Changes   |"
