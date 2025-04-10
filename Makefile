@@ -119,10 +119,10 @@ stats-diff:
 	  { \
 	    file=$$1; old=$$2; new=$$3; \
 	    if (old == 0) { \
-	      printf "| %-31s | %7s | %7d | +%10d |\n", file, "--", new, new; \
+	      printf "| %-31s | %7s | %7d | \033[32m+%10d\033[0m |\n", file, "--", new, new; \
 	      added+=new; \
 	    } else if (new == 0) { \
-	      printf "| %-31s | %7d | %7s | -%10d |\n", file, old, "--", old; \
+	      printf "| %-31s | %7d | %7s | \033[31m-%10d\033[0m |\n", file, old, "--", old; \
 	      removed+=old; \
 	    } else if (old != new) { \
 	      diff=new-old; \
