@@ -38,7 +38,7 @@ struct xoc_idents {
     ident_t* last_temp_var;
     int temp_var_suffix;  
     info_t* info;
-    errp_t* errp;
+    log_t* log;
 };
 
 

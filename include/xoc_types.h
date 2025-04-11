@@ -61,7 +61,7 @@ struct xoc_types {
     bool is_enabled;
     type_t* head;
     type_t* tail;
-    errp_t* errp;
+    log_t* log;
 };
  
 #endif /* XOC_TYPES_H */

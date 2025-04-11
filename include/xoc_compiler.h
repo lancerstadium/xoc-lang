@@ -12,20 +12,34 @@
 #include "xoc_common.h"
 #include "xoc_types.h"
 #include "xoc_ident.h"
+#include "xoc_lexer.h"
+#include "xoc_parser.h"
 
+struct xoc_compiler_option {
+    int argc;
+    char** argv;
+    bool is_filesys_enabled;
+    bool is_impllib_enabled;
+};
 
 struct xoc_compiler {
-    mempool_t   pool;
+    pool_t      pool;
     mods_t      mods;
     blks_t      blks;
     types_t     types;
     idents_t    idents;
-    info_t      info;
-    errp_t      errp;
+    externals_t externs;
 
-    int argc;
-    char **argv;
+    lexer_t     lex;
+    parser_t    ps;
+
+    compiler_option_t opt;
+    info_t      info;
+    log_t       log;
 };
+
+void compiler_init(compiler_t* cp, const char* file, const char* src, compiler_option_t* opt);
+void compiler_free(compiler_t* cp);
 
 
 

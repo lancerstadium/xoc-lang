@@ -37,18 +37,18 @@ struct xoc_lexer {
     char* buf;
     token_t cur;
     token_t prev;
-    mempool_t* pool;
+    pool_t* pool;
     info_t* info;
-    errp_t* errp;
+    log_t* log;
 };
 
-int lexer_init(lexer_t* lex, mempool_t* pool, const char* file, const char* src, bool trusted, info_t* info, errp_t* errp);
-void lexer_free(lexer_t* lex);
-void lexer_next(lexer_t* lex);
-void lexer_next_forced(lexer_t* lex);
+int  lexer_init (lexer_t* lex, const char* file, const char* src, bool trusted, pool_t* pool, info_t* info, log_t* log);
+void lexer_free (lexer_t* lex);
+void lexer_next (lexer_t* lex);
+void lexer_nextf(lexer_t* lex);
 bool lexer_check(lexer_t* lex, tokenkind_t kind);
-const char* lexer_keyword(tokenkind_t kind);
-void lexer_eat(lexer_t* lex, tokenkind_t kind);
+void lexer_eat  (lexer_t* lex, tokenkind_t kind);
+const char* lexer_mnemonic(tokenkind_t kind);
 tokenkind_t lexer_trans_assign(tokenkind_t kind);
 
 #endif /* XOC_LEXER_H */

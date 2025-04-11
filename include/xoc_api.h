@@ -39,16 +39,6 @@ extern "C" {
 
 
 
-int maxx(int a, int b) ;
-
-
-
-
-
-
-
-
-
 #if defined(__cplusplus)
 }
 #endif // __cplusplus

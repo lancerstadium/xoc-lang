@@ -5,7 +5,7 @@
 #include <string.h>
 #include <float.h>
 
-static const char* keywords[] = {
+static const char* mnemonic[] = {
     [XOC_TOK_NONE]      = "none",
     // -- Keywords
     [XOC_TOK_BREAK]     = "break",
@@ -83,9 +83,9 @@ static const char* keywords[] = {
     [XOC_TOK_REAL]      = "real number",
     [XOC_TOK_CHAR_LITERAL]= "character",
     [XOC_TOK_STR_LITERAL]= "string",
-    [XOC_TOK_IMPL_SEMICOL]= "end of line",
-    [XOC_TOK_EOL]       = "end of line",
-    [XOC_TOK_EOF]       = "end of file",
+    [XOC_TOK_IMPL_SEMICOL]= "EOL",
+    [XOC_TOK_EOL]       = "EOL",
+    [XOC_TOK_EOF]       = "EOF",
 };
 
 static unsigned int keyword_hash[XOC_NUM_KEYWORD];  /** Keyword hash */
@@ -135,7 +135,7 @@ static inline char lexer_escc(lexer_t* lex, bool* escaped) {
                 int len = 0;
                 const int items = sscanf(lex->buf + lex->buf_pos, "%x%n", &hex, &len);
                 if(items < 1 || hex > 0xFF) {
-                    lex->errp->call(lex->errp->context, "Invalid character code: \\x%x`", hex);
+                    lex->log->fmt(lex->log->context, "Invalid character code: \\x%x`", hex);
                     lex->cur.kind = XOC_TOK_NONE;
                     return '\0';
                 }
@@ -198,21 +198,24 @@ static inline void lexer_keyidt(lexer_t* lex) {
     int len = 0;
 
     // Get identifier name
-    do {
-        lex->cur.name[len++] = ch;
-        ch = lexer_getc(lex);
+    while (xoc_isident(ch)) {
+        lex->cur.name[len] = ch;
+        len++;
+        lexer_getc(lex);
         if(len > XOC_MAX_STR_LEN) {
-            lex->errp->call(lex->errp->context, "Identifier is too long");
+            lex->log->fmt(lex->info, "Identifier name is too long: %s", lex->cur.name);
             lex->cur.kind = XOC_TOK_NONE;
             return;
         }
-    } while (xoc_isident(ch));
+        ch = lex->buf[lex->buf_pos];
+    }
     lex->cur.name[len] = '\0';
     lex->cur.key = xoc_hash(lex->cur.name);
+    printf("name: %s, key: %u\n", lex->cur.name, lex->cur.key);
     
     // Search keyword
     for (int i = 0; i < XOC_NUM_KEYWORD; i++) {
-        if(keyword_hash[i] == lex->cur.key && strcmp(lex->cur.name, keywords[XOC_TOK_BREAK + i]) == 0) {
+        if(keyword_hash[i] == lex->cur.key && strcmp(lex->cur.name, mnemonic[XOC_TOK_BREAK + i]) == 0) {
             lex->cur.kind = XOC_TOK_BREAK + i;
             return;
         }
@@ -368,7 +371,7 @@ static inline uint64_t lexer_digitlit(lexer_t* lex, int base, int* len, bool is_
     uint64_t res = 0;
     *len = 0;
     if(xoc_ch2digit(lex->buf[lex->buf_pos], base) == -1) {
-        lex->errp->call(lex->errp->context, "Expect digit, but got `%c`", lex->buf[lex->buf_pos]);
+        lex->log->fmt(lex->log->context, "Expect digit, but got `%c`", lex->buf[lex->buf_pos]);
         return res;
     }
     bool is_skip = false;
@@ -378,7 +381,7 @@ static inline uint64_t lexer_digitlit(lexer_t* lex, int base, int* len, bool is_
             if(is_frac) {
                 is_skip = true;
             } else {
-                lex->errp->call(lex->errp->context, "Number literal too large");
+                lex->log->fmt(lex->log->context, "Number literal too large");
             }
         }
         if(!is_skip) {
@@ -388,7 +391,7 @@ static inline uint64_t lexer_digitlit(lexer_t* lex, int base, int* len, bool is_
         lexer_getc(lex);
         if(lex->buf[lex->buf_pos] == '_') {
             if(xoc_ch2digit(lex->buf[lex->buf_pos + 1], base) == -1) {
-                lex->errp->call(lex->errp->context, "Expect digit after `_`, but got `%c`", lex->buf[lex->buf_pos + 1]);
+                lex->log->fmt(lex->log->context, "Expect digit after `_`, but got `%c`", lex->buf[lex->buf_pos + 1]);
             } else {
                 lexer_getc(lex);
             }
@@ -440,7 +443,7 @@ static void lexer_numlit(lexer_t* lex) {
             lex->cur.Real *= xoc_pow(10, expon);
         }
         if (lex->cur.Real < -DBL_MAX || lex->cur.Real > DBL_MAX) {
-            lex->errp->call(lex->errp->context, "Number literal too large");
+            lex->log->fmt(NULL, "Number literal too large");
         }
     } else {
         lex->cur.kind = XOC_TOK_INT;
@@ -453,7 +456,7 @@ static inline void lexer_chlit(lexer_t* lex) {
     lex->cur.Int = lexer_escc(lex, NULL);
     const char ch = lexer_getc(lex);
     if (ch != '\'') {
-        lex->errp->call(lex->errp->context, "Expect char literal, but got `%c`", ch);
+        lex->log->fmt(NULL, "Expect char literal, but got `%c`", ch);
         lex->cur.kind = XOC_TOK_NONE;
     }
     lexer_getc(lex);
@@ -466,7 +469,7 @@ static inline int lexer_strslit(lexer_t* lex) {
     char ch = lexer_escc(lex, &escaped);
     while (ch != '\"' || escaped) {
         if (ch == '\0' || (ch == '\n' && !escaped)) {
-            lex->errp->call(lex->errp->context, "Untterminated string literal");
+            lex->log->fmt(NULL, "Untterminated string literal");
             lex->cur.kind = XOC_TOK_NONE;
             return len;
         }
@@ -487,16 +490,18 @@ static inline void lexer_strlit(lexer_t* lex) {
     lexer_t aheadlex = *lex;
     aheadlex.cur.Str = NULL;
     int len = lexer_strslit(&aheadlex);
-    lex->cur.Str = mempool_alc_str(lex->pool, len);
+    lex->cur.Str = pool_alc(lex->pool, len + 1);
     lexer_strslit(lex);
 }
 
 static inline void lexer_next_eol(lexer_t* lex) {
+
     lexer_spcmt(lex);
     lex->cur.kind = XOC_TOK_NONE;
     lex->cur.row = lex->info->row = lex->row;
     lex->cur.pos = lex->info->pos = lex->pos;
     char ch = lex->buf[lex->buf_pos];
+    
     if((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || ch == '_') {
         lexer_keyidt(lex);
     } else if (ch >= '0' && ch <= '9') {
@@ -515,19 +520,19 @@ static inline void lexer_next_eol(lexer_t* lex) {
         if(!lex->buf[lex->buf_pos]) {
             lex->cur.kind = XOC_TOK_EOF;
         } else {
-            lex->errp->call(lex->errp->context, "Unexpected character `%c` or end of file", ch);
+            lex->log->fmt(lex->info, "Unexpected character `%c` or end of file.", ch);
         }
     }
 }
 
 
 
-int lexer_init(lexer_t* lex, mempool_t* pool, const char* file, const char* src, bool trusted, info_t* info, errp_t* errp) {
+int lexer_init(lexer_t* lex, const char* file, const char* src, bool trusted, pool_t* pool, info_t* info, log_t* log) {
     // 1. Fill keyword hash
     for (int i = 0; i < XOC_NUM_KEYWORD; i++) {
-        keyword_hash[i] = xoc_hash(keywords[XOC_TOK_BREAK + i]);
+        keyword_hash[i] = xoc_hash(mnemonic[XOC_TOK_BREAK + i]);
     }
-    lex->errp = errp;
+    lex->log = log;
     lex->has_src = false;
     lex->is_trusted = trusted;
     lex->buf = NULL;
@@ -537,13 +542,13 @@ int lexer_init(lexer_t* lex, mempool_t* pool, const char* file, const char* src,
     if (src) {
         lex->has_src = true;
         buf_len = strlen(src);
-        lex->buf = (char*)malloc(sizeof(char) * buf_len);
+        lex->buf = (char*)malloc(sizeof(char) * (buf_len + 1));
         strcpy(lex->buf, src);
         lex->buf[buf_len] = '\0';
-    } else {
+    } else if (file) {
         FILE* fp = fopen(file, "rb");
         if(!fp) {
-            lex->errp->call(lex->errp->context, "Cannot open file: %s", file);
+            lex->log->fmt(lex->log->context, "Cannot open file: %s", file);
             return 0;
         }
         fseek(fp, 0, SEEK_END);
@@ -551,7 +556,7 @@ int lexer_init(lexer_t* lex, mempool_t* pool, const char* file, const char* src,
         rewind(fp);
         lex->buf = (char*)malloc(sizeof(char) * buf_len);
         if(fread(lex->buf, sizeof(char), buf_len, fp) != buf_len) {
-            lex->errp->call(lex->errp->context, "Cannot read file: %s", file);
+            lex->log->fmt(lex->log->context, "Cannot read file: %s", file);
             return 0;
         }
         lex->buf[buf_len] = '\0';
@@ -559,26 +564,30 @@ int lexer_init(lexer_t* lex, mempool_t* pool, const char* file, const char* src,
     }
 
     // 3. Initialize lexer
-    lex->pool = pool;
-    lex->buf_pos = 0;
-    lex->row = 1;
-    lex->pos = 1;
-    lex->cur = (token_t) {
-        .kind   = XOC_TOK_NONE,
-        .Str    = NULL,
-        .row    = lex->row,
-        .pos    = lex->pos
-    };
-    lex->file = mempool_alc(pool, strlen(file) + 1);
-    strcpy(lex->file, file);
-    lex->prev = lex->cur;
-    lex->info = info;
+    if (file) {
+        int flen = strlen(file);
+        lex->file = pool_nalc(pool, sizeof(char), flen + 1);
+        strcpy(lex->file, file);
+        lex->file[flen] = '\0';
+    } else {
+        lex->file = "<unknown>";
+    }
+    lex->pool       = pool;
+    lex->buf_pos    = 0;
+    lex->row        = 1;
+    lex->pos        = 1;
+    lex->cur.kind   = XOC_TOK_NONE;
+    lex->cur.Str    = NULL;
+    lex->cur.row    = lex->row;
+    lex->cur.pos    = lex->pos;
+    lex->prev       = lex->cur;
+    lex->info       = info;
     lex->info->file = lex->file;
     lex->info->func = "<unknown>";
-    lex->info->row = lex->row;
-    lex->info->pos = lex->pos;
+    lex->info->row  = lex->row;
+    lex->info->pos  = lex->pos;
     lex->info->code = 0;
-    lex->info->msg = NULL;
+    lex->info->msg  = NULL;
 
     return buf_len;
 }
@@ -596,7 +605,7 @@ void lexer_free(lexer_t* lex) {
 void lexer_next(lexer_t* lex) {
     do {
         lexer_next_eol(lex);
-        if (lex->cur.kind == XOC_TOK_EOF) {
+        if (lex->cur.kind == XOC_TOK_EOL) {
             if( lex->prev.kind == XOC_TOK_BREAK       ||
                 lex->prev.kind == XOC_TOK_CONTINUE    ||
                 lex->prev.kind == XOC_TOK_RETURN      ||
@@ -614,12 +623,14 @@ void lexer_next(lexer_t* lex) {
                 lex->prev.kind == XOC_TOK_STR_LITERAL) {
                 lex->cur.kind = XOC_TOK_IMPL_SEMICOL;
             }
+            lex->cur.kind = XOC_TOK_IMPL_SEMICOL;
         }
         lex->prev = lex->cur;
+        lex->log->fmt(NULL, "<'%s':%s>", lex->cur.name, mnemonic[lex->cur.kind]);
     } while (lex->cur.kind == XOC_TOK_EOL);
 }
 
-void lexer_next_forced(lexer_t* lex) {
+void lexer_nextf(lexer_t* lex) {
     lexer_next_eol(lex);
     // Replace eol with impl_semicol
     if (lex->cur.kind == XOC_TOK_EOL) {
@@ -628,14 +639,10 @@ void lexer_next_forced(lexer_t* lex) {
     lex->prev = lex->cur;
 }
 
-const char* lexer_keyword(tokenkind_t kind) {
-    return keywords[kind];
-}
-
 bool lexer_check(lexer_t* lex, tokenkind_t kind) {
     bool res = lex->cur.kind == kind;
     if(!res) {
-        lex->errp->call(lex->errp->context, "Expect token `%s`, but got `%s`", keywords[kind], keywords[lex->cur.kind]);
+        lex->log->fmt(lex->info, "Expect token `%s`, but got `%s`", mnemonic[kind], mnemonic[lex->cur.kind]);
     }
     return res;
 }
@@ -645,6 +652,10 @@ void lexer_eat(lexer_t* lex, tokenkind_t kind) {
         lexer_check(lex, kind);
         lexer_next(lex);
     }
+}
+
+const char* lexer_mnemonic(tokenkind_t kind) {
+    return mnemonic[kind];
 }
 
 tokenkind_t lexer_trans_assign(tokenkind_t kind) {
