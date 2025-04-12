@@ -11,7 +11,6 @@
 
 #include "xoc_common.h"
 #include "xoc_types.h"
-#include "xoc_ident.h"
 #include "xoc_lexer.h"
 #include "xoc_parser.h"
 
@@ -23,12 +22,9 @@ struct xoc_compiler_option {
 };
 
 struct xoc_compiler {
-    pool_t      pool;
+    pool_t      syms;   // ident symbols
+    pool_t      blks;   // insn blocks
     mods_t      mods;
-    blks_t      blks;
-    types_t     types;
-    idents_t    idents;
-    externals_t externs;
 
     lexer_t     lex;
     parser_t    ps;

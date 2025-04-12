@@ -32,7 +32,7 @@ struct xoc_param {
     type_t* type;
 };
 
-struct xoc_sign {
+struct xoc_func {
     bool is_method;
     int num_param;
     int num_default_param;
@@ -41,27 +41,43 @@ struct xoc_sign {
     type_t* type;
 };
 
-struct xoc_type {
-    typekind_t kind;
-    bool is_expr_list;
-    bool is_enum;
+// struct xoc_type {
+//     typekind_t kind;
+//     const_t val;
+//     // bool is_expr_list;
+//     // bool is_enum;
+//     // int blk;
+//     // int num_item;
+//     // type_t* base;
+//     // type_t* next;
+//     // ident_t* ident;                 /** For types that have identifiers */
+//     // union {
+//     //     field_t** field;
+//     //     econst_t** econst;
+//     //     func_t** func;
+//     // };
+// };
+
+struct xoc_ident {
+    identkind_t kind;
+    identname_t name;
+    bool is_export;
+    bool is_global;
+    bool is_used;
+    bool is_temp;
     int blk;
-    int num_item;
-    type_t* base;
-    type_t* next;
-    ident_t* ident;                 /** For types that have identifiers */
+    int mod;
+    int func_offset;
+    unsigned int key;
+    ident_t *next;
     union {
-        field_t** field;
-        econst_t** econst;
-        sign_t** sign;
+        void* ptr;
+        int64_t offset;
+        int64_t mod_val;
+        const_t constant;
     };
+    info_t info;
 };
 
-struct xoc_types {
-    bool is_enabled;
-    type_t* head;
-    type_t* tail;
-    log_t* log;
-};
  
 #endif /* XOC_TYPES_H */

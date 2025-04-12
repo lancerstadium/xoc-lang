@@ -78,12 +78,12 @@ static const char* mnemonic[] = {
     [XOC_TOK_PERIOD]    = ".",
     [XOC_TOK_ELLIPSIS]  = "..",
     // -- Others
-    [XOC_TOK_IDT]       = "identifier",
-    [XOC_TOK_INT]       = "integer number",
-    [XOC_TOK_REAL]      = "real number",
-    [XOC_TOK_CHAR_LITERAL]= "character",
-    [XOC_TOK_STR_LITERAL]= "string",
-    [XOC_TOK_IMPL_SEMICOL]= "EOLI",
+    [XOC_TOK_IDT]       = "ident",
+    [XOC_TOK_INT_LIT]   = "int",
+    [XOC_TOK_REAL_LIT]  = "real",
+    [XOC_TOK_CHAR_LIT]  = "char",
+    [XOC_TOK_STR_LIT]   = "str",
+    [XOC_TOK_EOLI]      = "EOLI",
     [XOC_TOK_EOL]       = "EOL",
     [XOC_TOK_EOF]       = "EOF",
 };
@@ -214,7 +214,7 @@ static inline void lexer_keyidt(lexer_t* lex) {
     }
     lex->cur.name[len] = '\0';
     lex->cur.key = xoc_hash(lex->cur.name);
-    lex->log->fmt(lex->info, "ident: %s, key: %08x", lex->cur.name, lex->cur.key);
+    // lex->log->fmt(lex->info, "ident: %s, key: %08x", lex->cur.name, lex->cur.key);
     
     // Search keyword
     for (int i = 0; i < XOC_NUM_KEYWORD; i++) {
@@ -438,7 +438,7 @@ static void lexer_numlit(lexer_t* lex) {
         }
     }
     if (is_real) {
-        lex->cur.kind = XOC_TOK_REAL;
+        lex->cur.kind = XOC_TOK_REAL_LIT;
         lex->cur.Real = (double)whole + (double)frac / (double)xoc_pow(10, frac_len);
         if (is_expneg) {
             lex->cur.Real /= xoc_pow(10, expon);
@@ -449,13 +449,13 @@ static void lexer_numlit(lexer_t* lex) {
             lex->log->fmt(NULL, "Number literal too large");
         }
     } else {
-        lex->cur.kind = XOC_TOK_INT;
+        lex->cur.kind = XOC_TOK_INT_LIT;
         lex->cur.Int = whole;
     }
 }
 
 static inline void lexer_chlit(lexer_t* lex) {
-    lex->cur.kind = XOC_TOK_CHAR_LITERAL;
+    lex->cur.kind = XOC_TOK_CHAR_LIT;
     lex->cur.Int = lexer_escc(lex, NULL);
     const char ch = lexer_getc(lex);
     if (ch != '\'') {
@@ -466,7 +466,7 @@ static inline void lexer_chlit(lexer_t* lex) {
 }
 
 static inline int lexer_strslit(lexer_t* lex) {
-    lex->cur.kind = XOC_TOK_STR_LITERAL;
+    lex->cur.kind = XOC_TOK_STR_LIT;
     int len = 0;
     bool escaped = false;
     char ch = lexer_escc(lex, &escaped);
@@ -504,7 +504,7 @@ static inline void lexer_next_eol(lexer_t* lex) {
     lex->cur.row = lex->info->row = lex->row;
     lex->cur.pos = lex->info->pos = lex->pos;
     char ch = lex->buf[lex->buf_pos];
-    lex->log->fmt(lex->info, "now `%c`", ch);
+    // lex->log->fmt(lex->info, "now `%c`", ch);
     if((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || ch == '_') {
         lexer_keyidt(lex);
     } else if (ch >= '0' && ch <= '9') {
@@ -556,21 +556,22 @@ int lexer_init(lexer_t* lex, const char* src, bool trusted, pool_t* pool, info_t
     return buf_len;
 }
 
-
 void lexer_free(lexer_t* lex) {
+    // 如果缓冲区不为空
     if(lex->buf) {
+        // 释放缓冲区
         free(lex->buf);
+        // 将缓冲区指针置为空
         lex->buf = NULL;
     }
 }
 
-
 void token_info(token_t* tok, char* buf, int len) {
     switch (tok->kind) {
-        case XOC_TOK_IDT    : snprintf(buf, len, "<'%s':%s>", tok->name , mnemonic[tok->kind]); break;
-        case XOC_TOK_INT    : snprintf(buf, len, "<%ld:%s>" , tok->Int  , mnemonic[tok->kind]); break;
-        case XOC_TOK_REAL   : snprintf(buf, len, "<%f:%s>"  , tok->Real , mnemonic[tok->kind]); break;
-        default             : snprintf(buf, len, "<%s>"     , mnemonic[tok->kind]);             break;
+        case XOC_TOK_IDT        : snprintf(buf, len, "<'%s':`%s`>", tok->name , mnemonic[tok->kind]); break;
+        case XOC_TOK_INT_LIT    : snprintf(buf, len, "<%ld:`%s`>" , tok->Int  , mnemonic[tok->kind]); break;
+        case XOC_TOK_REAL_LIT   : snprintf(buf, len, "<%f:`%s`>"  , tok->Real , mnemonic[tok->kind]); break;
+        default                 : snprintf(buf, len, "<`%s`>"     , mnemonic[tok->kind]);             break;
     }
 }
 
@@ -591,13 +592,13 @@ void lexer_next(lexer_t* lex) {
                 lex->prev.kind == XOC_TOK_RBRACE      ||
                 lex->prev.kind == XOC_TOK_CARET       ||
                 lex->prev.kind == XOC_TOK_IDT         ||
-                lex->prev.kind == XOC_TOK_INT         ||
-                lex->prev.kind == XOC_TOK_REAL        ||
-                lex->prev.kind == XOC_TOK_CHAR_LITERAL||
-                lex->prev.kind == XOC_TOK_STR_LITERAL) {
-                lex->cur.kind = XOC_TOK_IMPL_SEMICOL;
+                lex->prev.kind == XOC_TOK_INT_LIT         ||
+                lex->prev.kind == XOC_TOK_REAL_LIT        ||
+                lex->prev.kind == XOC_TOK_CHAR_LIT||
+                lex->prev.kind == XOC_TOK_STR_LIT) {
+                lex->cur.kind = XOC_TOK_EOLI;
             }
-            lex->cur.kind = XOC_TOK_IMPL_SEMICOL;
+            lex->cur.kind = XOC_TOK_EOLI;
         }
         lex->prev = lex->cur;
         token_info(&lex->cur, msg_buf, 256);
@@ -609,7 +610,7 @@ void lexer_nextf(lexer_t* lex) {
     lexer_next_eol(lex);
     // Replace eol with impl_semicol
     if (lex->cur.kind == XOC_TOK_EOL) {
-        lex->cur.kind = XOC_TOK_IMPL_SEMICOL;
+        lex->cur.kind = XOC_TOK_EOLI;
     }
     lex->prev = lex->cur;
 }
