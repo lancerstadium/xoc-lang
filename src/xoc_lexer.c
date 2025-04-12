@@ -83,7 +83,7 @@ static const char* mnemonic[] = {
     [XOC_TOK_REAL]      = "real number",
     [XOC_TOK_CHAR_LITERAL]= "character",
     [XOC_TOK_STR_LITERAL]= "string",
-    [XOC_TOK_IMPL_SEMICOL]= "EOL",
+    [XOC_TOK_IMPL_SEMICOL]= "EOLI",
     [XOC_TOK_EOL]       = "EOL",
     [XOC_TOK_EOF]       = "EOF",
 };
@@ -174,6 +174,7 @@ static inline void lexer_mlcmt(lexer_t* lex) {
 static inline void lexer_spcmt(lexer_t* lex) {
     char ch = lex->buf[lex->buf_pos];
     while (ch && (ch == ' ' || ch == '\t' || ch == '\r' || ch == '/')) {
+        
         if(ch == '/') {
             if(lexer_getceq(lex, '/')) {
                 lexer_slcmt(lex);
@@ -186,8 +187,10 @@ static inline void lexer_spcmt(lexer_t* lex) {
             }
             ch = lex->buf[lex->buf_pos];
         } else {
-            ch = lexer_getc(lex);
+            lexer_getc(lex);
+            ch = lex->buf[lex->buf_pos];
         }
+
     }
 }
 
@@ -211,7 +214,7 @@ static inline void lexer_keyidt(lexer_t* lex) {
     }
     lex->cur.name[len] = '\0';
     lex->cur.key = xoc_hash(lex->cur.name);
-    printf("name: %s, key: %u\n", lex->cur.name, lex->cur.key);
+    lex->log->fmt(lex->info, "ident: %s, key: %08x", lex->cur.name, lex->cur.key);
     
     // Search keyword
     for (int i = 0; i < XOC_NUM_KEYWORD; i++) {
@@ -501,7 +504,7 @@ static inline void lexer_next_eol(lexer_t* lex) {
     lex->cur.row = lex->info->row = lex->row;
     lex->cur.pos = lex->info->pos = lex->pos;
     char ch = lex->buf[lex->buf_pos];
-    
+    lex->log->fmt(lex->info, "now `%c`", ch);
     if((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || ch == '_') {
         lexer_keyidt(lex);
     } else if (ch >= '0' && ch <= '9') {
@@ -510,9 +513,7 @@ static inline void lexer_next_eol(lexer_t* lex) {
         lexer_chlit(lex);
     } else if (ch == '"') {
         lexer_strlit(lex);
-    }
-
-    if (lex->cur.kind == XOC_TOK_NONE) {
+    } else {
         lexer_ops(lex);
     }
 
@@ -527,52 +528,22 @@ static inline void lexer_next_eol(lexer_t* lex) {
 
 
 
-int lexer_init(lexer_t* lex, const char* file, const char* src, bool trusted, pool_t* pool, info_t* info, log_t* log) {
+int lexer_init(lexer_t* lex, const char* src, bool trusted, pool_t* pool, info_t* info, log_t* log) {
     // 1. Fill keyword hash
     for (int i = 0; i < XOC_NUM_KEYWORD; i++) {
         keyword_hash[i] = xoc_hash(mnemonic[XOC_TOK_BREAK + i]);
     }
-    lex->log = log;
-    lex->has_src = false;
-    lex->is_trusted = trusted;
-    lex->buf = NULL;
-    int buf_len = 0;
 
     // 2. Read source file/buffer
-    if (src) {
-        lex->has_src = true;
-        buf_len = strlen(src);
-        lex->buf = (char*)malloc(sizeof(char) * (buf_len + 1));
-        strcpy(lex->buf, src);
-        lex->buf[buf_len] = '\0';
-    } else if (file) {
-        FILE* fp = fopen(file, "rb");
-        if(!fp) {
-            lex->log->fmt(lex->log->context, "Cannot open file: %s", file);
-            return 0;
-        }
-        fseek(fp, 0, SEEK_END);
-        buf_len = ftell(fp);
-        rewind(fp);
-        lex->buf = (char*)malloc(sizeof(char) * buf_len);
-        if(fread(lex->buf, sizeof(char), buf_len, fp) != buf_len) {
-            lex->log->fmt(lex->log->context, "Cannot read file: %s", file);
-            return 0;
-        }
-        lex->buf[buf_len] = '\0';
-        fclose(fp);
-    }
+    int buf_len = 0;
+    lex->buf        = xoc_strdup(src);
+    buf_len         = lex->buf ? strlen(lex->buf) : 0;
 
     // 3. Initialize lexer
-    if (file) {
-        int flen = strlen(file);
-        lex->file = pool_nalc(pool, sizeof(char), flen + 1);
-        strcpy(lex->file, file);
-        lex->file[flen] = '\0';
-    } else {
-        lex->file = "<unknown>";
-    }
     lex->pool       = pool;
+    lex->info       = info;
+    lex->log        = log;
+    lex->is_trusted = trusted;
     lex->buf_pos    = 0;
     lex->row        = 1;
     lex->pos        = 1;
@@ -581,13 +552,6 @@ int lexer_init(lexer_t* lex, const char* file, const char* src, bool trusted, po
     lex->cur.row    = lex->row;
     lex->cur.pos    = lex->pos;
     lex->prev       = lex->cur;
-    lex->info       = info;
-    lex->info->file = lex->file;
-    lex->info->func = "<unknown>";
-    lex->info->row  = lex->row;
-    lex->info->pos  = lex->pos;
-    lex->info->code = 0;
-    lex->info->msg  = NULL;
 
     return buf_len;
 }
@@ -596,13 +560,23 @@ int lexer_init(lexer_t* lex, const char* file, const char* src, bool trusted, po
 void lexer_free(lexer_t* lex) {
     if(lex->buf) {
         free(lex->buf);
-        lex->file = NULL;
         lex->buf = NULL;
     }
 }
 
 
+void token_info(token_t* tok, char* buf, int len) {
+    switch (tok->kind) {
+        case XOC_TOK_IDT    : snprintf(buf, len, "<'%s':%s>", tok->name , mnemonic[tok->kind]); break;
+        case XOC_TOK_INT    : snprintf(buf, len, "<%ld:%s>" , tok->Int  , mnemonic[tok->kind]); break;
+        case XOC_TOK_REAL   : snprintf(buf, len, "<%f:%s>"  , tok->Real , mnemonic[tok->kind]); break;
+        default             : snprintf(buf, len, "<%s>"     , mnemonic[tok->kind]);             break;
+    }
+}
+
 void lexer_next(lexer_t* lex) {
+    if(!lex->buf) return;
+    char msg_buf[256];
     do {
         lexer_next_eol(lex);
         if (lex->cur.kind == XOC_TOK_EOL) {
@@ -626,7 +600,8 @@ void lexer_next(lexer_t* lex) {
             lex->cur.kind = XOC_TOK_IMPL_SEMICOL;
         }
         lex->prev = lex->cur;
-        lex->log->fmt(NULL, "<'%s':%s>", lex->cur.name, mnemonic[lex->cur.kind]);
+        token_info(&lex->cur, msg_buf, 256);
+        lex->log->fmt(lex->info, "%s", msg_buf);
     } while (lex->cur.kind == XOC_TOK_EOL);
 }
 

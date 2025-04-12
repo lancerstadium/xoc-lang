@@ -29,11 +29,9 @@ struct xoc_token {
 
 struct xoc_lexer {
     bool is_trusted;
-    bool has_src;
     int row;
     int pos;
     int buf_pos;
-    char* file;
     char* buf;
     token_t cur;
     token_t prev;
@@ -42,7 +40,7 @@ struct xoc_lexer {
     log_t* log;
 };
 
-int  lexer_init (lexer_t* lex, const char* file, const char* src, bool trusted, pool_t* pool, info_t* info, log_t* log);
+int  lexer_init (lexer_t* lex, const char* src, bool trusted, pool_t* pool, info_t* info, log_t* log);
 void lexer_free (lexer_t* lex);
 void lexer_next (lexer_t* lex);
 void lexer_nextf(lexer_t* lex);

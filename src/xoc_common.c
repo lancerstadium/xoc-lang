@@ -4,24 +4,76 @@
 #include <string.h>
 #include <stdio.h>
 
-void info_init(info_t* info, const char* file, const char* func, int row, int pos, int code, const char* fmt, va_list args) {
-    info_free(info);
-    if (!file) {
-        file = "<unknown>";
-    } else {
-        info->file = malloc(strlen(file) + 1);
-        strcpy(info->file, file);
+char* xoc_strdup(const char* src) {
+    if (!src) {
+        return NULL;
     }
-    if (!func) {
-        func = "<unknown>";
-    } else {
-        info->func = malloc(strlen(func) + 1);
-        strcpy(info->func, func);
+    return strdup(src);
+}
+
+unsigned int xoc_hash(const char* str) {
+    unsigned int hash = 5381;
+    char ch;
+    while ((ch = *str++)) {
+        hash = ((hash << 5) + hash) + ch;
     }
+    return hash;
+}
+
+
+double xoc_pow(double base, int exp) {
+    double result = 1.0;
+    while (exp > 0) {
+        if (exp & 1) {
+            result *= base;
+        }
+        base *= base;
+        exp >>= 1;
+    }
+    return result;
+}
+
+bool xoc_isident(char ch) {
+    return (ch >= 'a' && ch <= 'z') || 
+           (ch >= 'A' && ch <= 'Z') || 
+           (ch >= '0' && ch <= '9') || 
+           (ch == '_');
+}
+
+int xoc_ch2digit(char ch, int base) {
+    switch (base) {
+        case 2  : return ch >= '0' && ch <= '1' ? ch - '0' : -1;
+        case 8  : return ch >= '0' && ch <= '7' ? ch - '0' : -1;
+        case 10 : return ch >= '0' && ch <= '9' ? ch - '0' : -1;
+        case 16 : return ch >= '0' && ch <= '9' ? ch - '0' : 
+                         ch >= 'a' && ch <= 'f' ? ch - 'a' + 10 : 
+                         ch >= 'A' && ch <= 'F' ? ch - 'A' + 10 : -1;
+    }
+    return -1;
+}
+
+void info_init(info_t* info, const char* file, const char* func, int row, int pos, int code) {
+    info->file = xoc_strdup(file);
+    info->func = xoc_strdup(func);
     info->row = row;
     info->pos = pos;
     info->code = code;
     info->msg = NULL;
+}
+
+void info_setpos(info_t* info, const char* file, const char* func, int row, int pos) {
+    info_free(info);
+    info->file = xoc_strdup(file);
+    info->func = xoc_strdup(func);
+    info->row = row;
+    info->pos = pos;
+}
+
+void info_setmsg(info_t* info, const char* fmt, va_list args) {
+    if (info->msg) {
+        free(info->msg);
+        info->msg = NULL;
+    }
     va_list argscp;
     va_copy(argscp, args);
     const int msg_len = vsnprintf(NULL, 0, fmt, args);
@@ -114,6 +166,23 @@ char* pool_alc(pool_t* pool, int size) {
     return pool->tail->data;
 }
 
+blob_t* pool_nin(pool_t* pool, char* ptr) {
+    blob_t *p = pool->head;
+    bool found = false;
+    while (p) {
+        if(p->data == ptr - sizeof(uint32_t) * 3) {
+            found = true;
+            break;
+        }
+        p = p->next;
+    }
+    if (!found) {
+        return NULL;
+    }
+    return p;
+}
+    
+
 char* pool_nalc(pool_t *pool, int align, int size) {
     char* data = pool_alc(pool, sizeof(uint32_t) * 3 + align * size);
     *(uint32_t*)data = align;                                   // Align (Byte)
@@ -128,16 +197,8 @@ char* pool_nrlc(pool_t* pool, char* ptr, int size) {
     uint32_t org_size = *(uint32_t*)ptr - sizeof(uint32_t) * 2;
     uint32_t org_capacity = *(uint32_t*)ptr - sizeof(uint32_t);
     // Find blob containing ptr
-    blob_t *p = pool->head;
-    bool found = false;
-    while (p) {
-        if(p->data == (ptr - sizeof(uint32_t) * 2)) {
-            found = true;
-            break;
-        }
-        p = p->next;
-    }
-    if (!found) {
+    blob_t *p = pool_nin(pool, ptr);
+    if (!p) {
         return NULL;
     }
     // Deal with realloc
@@ -165,16 +226,8 @@ char* pool_npush(pool_t* pool, char* ptr, char* new, int size) {
     uint32_t org_size = *(uint32_t*)ptr - sizeof(uint32_t) * 2;
     uint32_t org_capacity = *(uint32_t*)ptr - sizeof(uint32_t);
     // Find blob containing ptr
-    blob_t *p = pool->head;
-    bool found = false;
-    while (p) {
-        if(p->data == (ptr - sizeof(uint32_t) * 2)) {
-            found = true;
-            break;
-        }
-        p = p->next;
-    }
-    if (!found) {
+    blob_t *p = pool_nin(pool, ptr);
+    if (!p) {
         return NULL;
     }
     // Deal with push
@@ -203,16 +256,8 @@ char* pool_npop(pool_t* pool, char* ptr, int size) {
     uint32_t align = *(uint32_t*)ptr - sizeof(uint32_t) * 3;
     uint32_t org_size = *(uint32_t*)ptr - sizeof(uint32_t) * 2;
     // Find blob containing ptr
-    blob_t *p = pool->head;
-    bool found = false;
-    while (p) {
-        if(p->data == (ptr - sizeof(uint32_t) * 2)) {
-            found = true;
-            break;
-        }
-        p = p->next;
-    }
-    if (!found) {
+    blob_t *p = pool_nin(pool, ptr);
+    if (!p) {
         return NULL;
     }
     // Deal with pop

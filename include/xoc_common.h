@@ -305,56 +305,27 @@ struct xoc_externals {
     external_t* tail;
 };
 
-void info_init(info_t* info, const char* file, const char* func, int row, int pos, int code, const char* fmt, va_list args);
+char* xoc_strdup(const char* src);
+unsigned int xoc_hash(const char* str);
+double xoc_pow(double base, int exp);
+bool xoc_isident(char ch);
+int xoc_ch2digit(char ch, int base);
+
+void info_init(info_t* info, const char* file, const char* func, int row, int pos, int code);
+void info_setpos(info_t* info, const char* file, const char* func, int row, int pos);
+void info_setmsg(info_t* info, const char* fmt, va_list args);
 void info_free(info_t* info);
 void log_fn_info(void* context, const char* fmt, ...);
 void log_init(log_t* log, void* context, log_fn_t fn);
 void pool_init(pool_t *pool);
 void pool_free(pool_t *pool);
 char* pool_alc(pool_t *pool, int size);
+blob_t* pool_nin(pool_t* pool, char* ptr);
 char* pool_nalc(pool_t *pool, int align, int size);
 char* pool_nrlc(pool_t* pool, char* ptr, int size);
 char* pool_npush(pool_t* pool, char* ptr, char* new, int size);
 
-static inline unsigned int xoc_hash(const char* str) {
-    unsigned int hash = 5381;
-    char ch;
-    while ((ch = *str++)) {
-        hash = ((hash << 5) + hash) + ch;
-    }
-    return hash;
-}
 
 
-static inline double xoc_pow(double base, int exp) {
-    double result = 1.0;
-    while (exp > 0) {
-        if (exp & 1) {
-            result *= base;
-        }
-        base *= base;
-        exp >>= 1;
-    }
-    return result;
-}
-
-static inline bool xoc_isident(char ch) {
-    return (ch >= 'a' && ch <= 'z') || 
-           (ch >= 'A' && ch <= 'Z') || 
-           (ch >= '0' && ch <= '9') || 
-           (ch == '_');
-}
-
-static inline int xoc_ch2digit(char ch, int base) {
-    switch (base) {
-        case 2  : return ch >= '0' && ch <= '1' ? ch - '0' : -1;
-        case 8  : return ch >= '0' && ch <= '7' ? ch - '0' : -1;
-        case 10 : return ch >= '0' && ch <= '9' ? ch - '0' : -1;
-        case 16 : return ch >= '0' && ch <= '9' ? ch - '0' : 
-                         ch >= 'a' && ch <= 'f' ? ch - 'a' + 10 : 
-                         ch >= 'A' && ch <= 'F' ? ch - 'A' + 10 : -1;
-    }
-    return -1;
-}
 
 #endif /* XOC_COMMON_H */
