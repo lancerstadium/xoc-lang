@@ -41,22 +41,23 @@ struct xoc_func {
     type_t* type;
 };
 
-// struct xoc_type {
-//     typekind_t kind;
-//     const_t val;
-//     // bool is_expr_list;
-//     // bool is_enum;
-//     // int blk;
-//     // int num_item;
-//     // type_t* base;
-//     // type_t* next;
-//     // ident_t* ident;                 /** For types that have identifiers */
-//     // union {
-//     //     field_t** field;
-//     //     econst_t** econst;
-//     //     func_t** func;
-//     // };
-// };
+struct xoc_type {
+    typekind_t kind;
+    union {
+        int8_t      I8;
+        uint8_t     U8;
+        int16_t     I16;
+        uint16_t    U16;
+        int32_t     I32;
+        uint32_t    U32;
+        int64_t     I64;
+        uint64_t    U64;
+        void*       Ptr;
+        uint64_t    WPtr;
+        float       F32;
+        double      F64;
+    };
+};
 
 struct xoc_ident {
     identkind_t kind;

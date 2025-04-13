@@ -166,7 +166,9 @@ char* pool_alc(pool_t* pool, int size) {
     return pool->tail->data;
 }
 
-blob_t* pool_nin(pool_t* pool, char* ptr) {
+
+
+blob_t* pool_nin(pool_t* pool, const char* ptr) {
     blob_t *p = pool->head;
     bool found = false;
     while (p) {
@@ -181,23 +183,45 @@ blob_t* pool_nin(pool_t* pool, char* ptr) {
     }
     return p;
 }
+
+blob_t* pool_nget(pool_t* pool, const char* ptr, uint32_t* align, uint32_t* size, uint32_t* capacity) {
+    blob_t *p = pool_nin(pool, ptr);
+    if (p) {
+        *align = *(uint32_t*)p->data;
+        *size = *(uint32_t*)(p->data + sizeof(uint32_t));
+        *capacity = *(uint32_t*)(p->data + sizeof(uint32_t) * 2);
+    } else {
+        *align = 0;
+        *size = 0;
+        *capacity = 0;
+    }
+    return p;
+}
+
+blob_t* pool_nset(pool_t* pool, const char* ptr, uint32_t align, uint32_t size, uint32_t capacity) {
+    blob_t *p = pool_nin(pool, ptr);
+    if (p) {
+        *(uint32_t*)p->data = align;
+        *(uint32_t*)(p->data + sizeof(uint32_t)) = size;
+        *(uint32_t*)(p->data + sizeof(uint32_t) * 2) = capacity;
+    }
+    return p;
+}
     
 
 char* pool_nalc(pool_t *pool, int align, int size) {
     char* data = pool_alc(pool, sizeof(uint32_t) * 3 + align * size);
     *(uint32_t*)data = align;                                   // Align (Byte)
-    *(uint32_t*)(data + sizeof(uint32_t)) = size;               // Size (Number)
+    *(uint32_t*)(data + sizeof(uint32_t)) = 0;                  // Size (Number)
     *(uint32_t*)(data + sizeof(uint32_t) * 2) = size;           // Capacity (Number)
     return data + sizeof(uint32_t) * 3;
 }
 
-char* pool_nrlc(pool_t* pool, char* ptr, int size) {
+char* pool_nrlc(pool_t* pool, char** pptr, int size) {
     // Get align, size, capacity
-    uint32_t align = *(uint32_t*)ptr - sizeof(uint32_t) * 3;
-    uint32_t org_size = *(uint32_t*)ptr - sizeof(uint32_t) * 2;
-    uint32_t org_capacity = *(uint32_t*)ptr - sizeof(uint32_t);
+    uint32_t align, org_size, org_capacity;
     // Find blob containing ptr
-    blob_t *p = pool_nin(pool, ptr);
+    blob_t *p = pool_nget(pool, *pptr, &align, &org_size, &org_capacity);
     if (!p) {
         return NULL;
     }
@@ -206,27 +230,25 @@ char* pool_nrlc(pool_t* pool, char* ptr, int size) {
         // realloc blob & update size & capacity & memcpy
         char* new_data = (char*)malloc(sizeof(uint32_t) * 3 + align * size);
         memcpy(new_data + sizeof(uint32_t) * 3, p->data + sizeof(uint32_t) * 3, align * org_size);
-        *(uint32_t*)(new_data + sizeof(uint32_t)) = size;               // Size (Number)
-        *(uint32_t*)(new_data + sizeof(uint32_t) * 2) = size;           // Capacity (Number)
+        pool_nset(pool, new_data, align, org_size, size);
         free(p->data);
         p->data = new_data;
-        return new_data + sizeof(uint32_t) * 3;
+        *pptr = new_data + sizeof(uint32_t) * 3;
+        return *pptr;
     } else if (org_size < size && org_capacity >= size) {
         // update size
-        *(uint32_t*)(p->data + sizeof(uint32_t)) = size;
-        return p->data + sizeof(uint32_t) * 3;
+        pool_nset(pool, *pptr, align, org_size, org_capacity);
+        return *pptr;
     } else {
-        return p->data + sizeof(uint32_t) * 3;
+        return *pptr;
     }
 }
 
-char* pool_npush(pool_t* pool, char* ptr, char* new, int size) {
+char* pool_npush(pool_t* pool, char** pptr, char* new, int size) {
     // Get align, size, capacity
-    uint32_t align = *(uint32_t*)ptr - sizeof(uint32_t) * 3;
-    uint32_t org_size = *(uint32_t*)ptr - sizeof(uint32_t) * 2;
-    uint32_t org_capacity = *(uint32_t*)ptr - sizeof(uint32_t);
+    uint32_t align, org_size, org_capacity;
     // Find blob containing ptr
-    blob_t *p = pool_nin(pool, ptr);
+    blob_t *p = pool_nget(pool, *pptr, &align, &org_size, &org_capacity);
     if (!p) {
         return NULL;
     }
@@ -234,7 +256,7 @@ char* pool_npush(pool_t* pool, char* ptr, char* new, int size) {
     if (org_size + size <= org_capacity) {
         // memcpy & update size
         memcpy(p->data + sizeof(uint32_t) * 3 + align * org_size, new, align * size);
-        *(uint32_t*)(p->data + sizeof(uint32_t)) = org_size + size;           // Size (Number)
+        pool_nset(pool, *pptr, align, org_size + size, org_capacity);
         return p->data + sizeof(uint32_t) * 3 + align * org_size;
     } else {
         // expand double capacity is not enough, calculate new capacity
@@ -242,28 +264,26 @@ char* pool_npush(pool_t* pool, char* ptr, char* new, int size) {
         while (new_capacity < org_size + size) {
             new_capacity *= 2;
         }
-        char* new_ptr = pool_nrlc(pool, ptr, new_capacity);
+        char* new_ptr = pool_nrlc(pool, pptr, new_capacity);
         memcpy(new_ptr + align * org_size, new, align * size);
-        *(uint32_t*)(new_ptr + sizeof(uint32_t)) = org_size + size;           // Size (Number)
-        *(uint32_t*)(new_ptr + sizeof(uint32_t) * 2) = new_capacity;          // Capacity (Number)
+        pool_nset(pool, new_ptr, align, org_size + size, new_capacity);
         return new_ptr + align * org_size;
     }
 }
 
 
-char* pool_npop(pool_t* pool, char* ptr, int size) {
+char* pool_npop(pool_t* pool, const char* ptr, int size) {
     // Get align, size, capacity
-    uint32_t align = *(uint32_t*)ptr - sizeof(uint32_t) * 3;
-    uint32_t org_size = *(uint32_t*)ptr - sizeof(uint32_t) * 2;
+    uint32_t align, org_size, org_capacity;
     // Find blob containing ptr
-    blob_t *p = pool_nin(pool, ptr);
+    blob_t *p = pool_nget(pool, ptr, &align, &org_size, &org_capacity);
     if (!p) {
         return NULL;
     }
     // Deal with pop
     if (org_size >= size) {
         // update size
-        *(uint32_t*)(p->data + sizeof(uint32_t)) = org_size - size;           // Size (Number)
+        pool_nset(pool, ptr, align, org_size - size, org_capacity);
         return p->data + sizeof(uint32_t) * 3 + align * (org_size - size);
     } else {
         return NULL;

@@ -10,18 +10,19 @@
 #define XOC_PARSER_H
 
 #include "xoc_lexer.h"
+#include "xoc_types.h"
 
-struct xoc_node {
-    type_t* type;
-    node_t* prevs;
-    node_t* nexts;
+struct xoc_inst {
+    opcode_t    op;
+    type_t      args[3];
 };
 
 struct xoc_parser {
+    int iidx;
+    type_t cur;
+
+    inst_t* blk_cur;
     pool_t* blks;
-    node_t* root;
-    node_t* cur;
-    int insn_pos;
     lexer_t* lex;
 
     info_t* info;
@@ -29,10 +30,10 @@ struct xoc_parser {
 };
 
 
-void parser_init(parser_t* parser, lexer_t* lex, pool_t* blks);
-void parser_expr(parser_t* parser);
-void parser_stmt(parser_t* parser);
-void parser_free(parser_t* parser);
+void parser_init(parser_t* prs, lexer_t* lex, pool_t* blks);
+void parser_expr(parser_t* prs);
+void parser_stmt(parser_t* prs);
+void parser_free(parser_t* prs);
 
 
 #endif /* XOC_PARSER_H */

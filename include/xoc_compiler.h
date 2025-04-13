@@ -27,7 +27,7 @@ struct xoc_compiler {
     mods_t      mods;
 
     lexer_t     lex;
-    parser_t    ps;
+    parser_t    prs;
 
     compiler_option_t opt;
     info_t      info;

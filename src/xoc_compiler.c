@@ -10,7 +10,7 @@ void compiler_init(compiler_t* cp, const char* file, const char* src, compiler_o
     pool_init   (&cp->syms);
     pool_init   (&cp->blks);
     lexer_init  (&cp->lex, src, false, &cp->syms, &cp->info, &cp->log);
-    parser_init (&cp->ps, &cp->lex, &cp->blks);
+    parser_init (&cp->prs, &cp->lex, &cp->blks);
 
     // -- Init compiler options
     cp->opt = *opt;
@@ -22,7 +22,7 @@ void compiler_init(compiler_t* cp, const char* file, const char* src, compiler_o
 void compiler_free(compiler_t* cp) {
     // 1. Free all
     // -- Free components
-    parser_free (&cp->ps);
+    parser_free (&cp->prs);
     lexer_free  (&cp->lex);
     pool_free   (&cp->blks);
     pool_free   (&cp->syms);

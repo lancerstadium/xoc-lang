@@ -36,17 +36,17 @@ typedef enum xoc_typekind {
     XOC_TYPE_VOID,
     XOC_TYPE_NULL,        
     XOC_TYPE_INT8,
-    XOC_TYPE_INT16,
-    XOC_TYPE_INT32,
-    XOC_TYPE_INT64,
-    XOC_TYPE_UINT8,
-    XOC_TYPE_UINT16,
-    XOC_TYPE_UINT32,
-    XOC_TYPE_UINT64,
+    XOC_TYPE_I16,
+    XOC_TYPE_I32,
+    XOC_TYPE_I64,
+    XOC_TYPE_U8,
+    XOC_TYPE_U16,
+    XOC_TYPE_U32,
+    XOC_TYPE_U64,
     XOC_TYPE_BOOL,
     XOC_TYPE_CHAR,
-    XOC_TYPE_REAL32,
-    XOC_TYPE_REAL64,
+    XOC_TYPE_F32,
+    XOC_TYPE_F64,
     XOC_TYPE_PTR,
     XOC_TYPE_WPTR,
     XOC_TYPE_ARRAY,
@@ -212,36 +212,25 @@ typedef struct xoc_type type_t;                         /** XOC Type: tag type *
 typedef struct xoc_ident ident_t;                       /** XOC Type: identifier */
 typedef struct xoc_token token_t;                       /** XOC Lexer: Token */
 typedef struct xoc_lexer lexer_t;                       /** XOC Lexer: Lexer*/
-typedef struct xoc_node node_t;                         /** XOC Parser: Node */
 typedef struct xoc_parser parser_t;                     /** XOC Parser: Parser */
 typedef struct xoc_compiler_option compiler_option_t;   /** XOC Compiler: Compiler Option */
 typedef struct xoc_compiler compiler_t;                 /** XOC Compiler: Compiler */
 
 struct xoc_const {
     union {
-        int8_t      Int8;
-        uint8_t     UInt8;
-        int16_t     Int16;
-        uint16_t    UInt16;
-        int32_t     Int32;
-        uint32_t    UInt32;
-        int64_t     Int64;
-        uint64_t    UInt64;
+        int8_t      I8;
+        uint8_t     U8;
+        int16_t     I16;
+        uint16_t    U16;
+        int32_t     I32;
+        uint32_t    U32;
+        int64_t     I64;
+        uint64_t    U64;
         void*       Ptr;
         uint64_t    WPtr;
         float       F32;
         double      F64;
     };
-};
-
-struct xoc_type {
-    typekind_t kind;
-    const_t val;
-};
-
-struct xoc_inst {
-    opcode_t    op;
-    type_t      args[3];
 };
 
 struct xoc_info {
@@ -309,13 +298,18 @@ void info_setmsg(info_t* info, const char* fmt, va_list args);
 void info_free(info_t* info);
 void log_fn_info(void* context, const char* fmt, ...);
 void log_init(log_t* log, void* context, log_fn_t fn);
+#define pool_nalign(ptr) (*(uint32_t*)((char*)(ptr) - 3 * sizeof(uint32_t)))
+#define pool_nsize(ptr) (*(uint32_t*)((char*)(ptr) - 2 * sizeof(uint32_t))) 
+#define pool_ncap(ptr) (*(uint32_t*)((char*)(ptr) - sizeof(uint32_t)))
 void pool_init(pool_t *pool);
 void pool_free(pool_t *pool);
 char* pool_alc(pool_t *pool, int size);
-blob_t* pool_nin(pool_t* pool, char* ptr);
+blob_t* pool_nin(pool_t* pool, const char* ptr);
+blob_t* pool_nget(pool_t* pool, const char* ptr, uint32_t* align, uint32_t* size, uint32_t* capacity);
+blob_t* pool_nset(pool_t* pool, const char* ptr, uint32_t align, uint32_t size, uint32_t capacity);
 char* pool_nalc(pool_t *pool, int align, int size);
-char* pool_nrlc(pool_t* pool, char* ptr, int size);
-char* pool_npush(pool_t* pool, char* ptr, char* new, int size);
+char* pool_nrlc(pool_t* pool, char** pptr, int size);
+char* pool_npush(pool_t* pool, char** pptr, char* new, int size);
 
 
 

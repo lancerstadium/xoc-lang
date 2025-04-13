@@ -577,7 +577,7 @@ void token_info(token_t* tok, char* buf, int len) {
 
 void lexer_next(lexer_t* lex) {
     if(!lex->buf) return;
-    char msg_buf[256];
+    char msg_buf[300];
     do {
         lexer_next_eol(lex);
         if (lex->cur.kind == XOC_TOK_EOL) {
@@ -601,7 +601,7 @@ void lexer_next(lexer_t* lex) {
             lex->cur.kind = XOC_TOK_EOLI;
         }
         lex->prev = lex->cur;
-        token_info(&lex->cur, msg_buf, 256);
+        token_info(&lex->cur, msg_buf, 300);
         lex->log->fmt(lex->info, "%s", msg_buf);
     } while (lex->cur.kind == XOC_TOK_EOL);
 }
@@ -629,6 +629,7 @@ void lexer_eat(lexer_t* lex, tokenkind_t kind) {
         lexer_next(lex);
     }
 }
+
 
 const char* lexer_mnemonic(tokenkind_t kind) {
     return mnemonic[kind];
