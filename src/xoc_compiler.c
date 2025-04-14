@@ -5,7 +5,7 @@ void compiler_init(compiler_t* cp, const char* file, const char* src, compiler_o
 
     // 1. Init all
     // -- Init components
-    info_init   (&cp->info, file ? file : "<unk>", src ? src : "<unk>", 1, 1, 0);
+    info_init   (&cp->info, file ? file : "main", src ? src : "main", 1, 1, 0);
     log_init    (&cp->log, &cp->info, log_fn_info);
     pool_init   (&cp->syms);
     pool_init   (&cp->blks);

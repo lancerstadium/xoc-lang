@@ -5,7 +5,7 @@
 #include <string.h>
 #include <float.h>
 
-static const char* mnemonic[] = {
+static const char* token_mnemonic_tbl[] = {
     [XOC_TOK_NONE]      = "none",
     // -- Keywords
     [XOC_TOK_BREAK]     = "break",
@@ -143,6 +143,7 @@ static inline char lexer_escc(lexer_t* lex, bool* escaped) {
                 lex->pos += len - 1;
                 return (char)hex;
             }
+            default: return ch;
         }
     }
     return ch;
@@ -218,7 +219,7 @@ static inline void lexer_keyidt(lexer_t* lex) {
     
     // Search keyword
     for (int i = 0; i < XOC_NUM_KEYWORD; i++) {
-        if(keyword_hash[i] == lex->cur.key && strcmp(lex->cur.name, mnemonic[XOC_TOK_BREAK + i]) == 0) {
+        if(keyword_hash[i] == lex->cur.key && strcmp(lex->cur.name, token_mnemonic_tbl[XOC_TOK_BREAK + i]) == 0) {
             lex->cur.kind = XOC_TOK_BREAK + i;
             return;
         }
@@ -455,6 +456,7 @@ static void lexer_numlit(lexer_t* lex) {
 }
 
 static inline void lexer_chlit(lexer_t* lex) {
+    lexer_getc(lex);
     lex->cur.kind = XOC_TOK_CHAR_LIT;
     lex->cur.Int = lexer_escc(lex, NULL);
     const char ch = lexer_getc(lex);
@@ -490,6 +492,7 @@ static inline int lexer_strslit(lexer_t* lex) {
 }
 
 static inline void lexer_strlit(lexer_t* lex) {
+    lexer_getc(lex);
     lexer_t aheadlex = *lex;
     aheadlex.cur.Str = NULL;
     int len = lexer_strslit(&aheadlex);
@@ -531,7 +534,7 @@ static inline void lexer_next_eol(lexer_t* lex) {
 int lexer_init(lexer_t* lex, const char* src, bool trusted, pool_t* pool, info_t* info, log_t* log) {
     // 1. Fill keyword hash
     for (int i = 0; i < XOC_NUM_KEYWORD; i++) {
-        keyword_hash[i] = xoc_hash(mnemonic[XOC_TOK_BREAK + i]);
+        keyword_hash[i] = xoc_hash(token_mnemonic_tbl[XOC_TOK_BREAK + i]);
     }
 
     // 2. Read source file/buffer
@@ -568,10 +571,12 @@ void lexer_free(lexer_t* lex) {
 
 void token_info(token_t* tok, char* buf, int len) {
     switch (tok->kind) {
-        case XOC_TOK_IDT        : snprintf(buf, len, "<'%s':`%s`>", tok->name , mnemonic[tok->kind]); break;
-        case XOC_TOK_INT_LIT    : snprintf(buf, len, "<%ld:`%s`>" , tok->Int  , mnemonic[tok->kind]); break;
-        case XOC_TOK_REAL_LIT   : snprintf(buf, len, "<%f:`%s`>"  , tok->Real , mnemonic[tok->kind]); break;
-        default                 : snprintf(buf, len, "<`%s`>"     , mnemonic[tok->kind]);             break;
+        case XOC_TOK_IDT        : snprintf(buf, len, "<'%s':`%s`>", tok->name , token_mnemonic_tbl[tok->kind]);   break;
+        case XOC_TOK_CHAR_LIT   : snprintf(buf, len, "<'%c':`%s`>" , (char)tok->Int  , token_mnemonic_tbl[tok->kind]);  break;
+        case XOC_TOK_STR_LIT    : snprintf(buf, len, "<\"%s\":`%s`>" , tok->Str , token_mnemonic_tbl[tok->kind]); break;
+        case XOC_TOK_INT_LIT    : snprintf(buf, len, "<%ld:`%s`>" , tok->Int  , token_mnemonic_tbl[tok->kind]);   break;
+        case XOC_TOK_REAL_LIT   : snprintf(buf, len, "<%f:`%s`>"  , tok->Real , token_mnemonic_tbl[tok->kind]);   break;
+        default                 : snprintf(buf, len, "<`%s`>"     , token_mnemonic_tbl[tok->kind]);               break;
     }
 }
 
@@ -618,7 +623,7 @@ void lexer_nextf(lexer_t* lex) {
 bool lexer_check(lexer_t* lex, tokenkind_t kind) {
     bool res = lex->cur.kind == kind;
     if(!res) {
-        lex->log->fmt(lex->info, "Expect token `%s`, but got `%s`", mnemonic[kind], mnemonic[lex->cur.kind]);
+        lex->log->fmt(lex->info, "Expect token `%s`, but got `%s`", token_mnemonic_tbl[kind], token_mnemonic_tbl[lex->cur.kind]);
     }
     return res;
 }
@@ -632,7 +637,7 @@ void lexer_eat(lexer_t* lex, tokenkind_t kind) {
 
 
 const char* lexer_mnemonic(tokenkind_t kind) {
-    return mnemonic[kind];
+    return token_mnemonic_tbl[kind];
 }
 
 tokenkind_t lexer_trans_assign(tokenkind_t kind) {

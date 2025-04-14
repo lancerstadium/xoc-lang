@@ -33,6 +33,8 @@ typedef enum xoc_identkind {
 typedef enum xoc_typekind {
     XOC_TYPE_NONE,
     XOC_TYPE_FWD,
+    XOC_TYPE_TMP,
+    XOC_TYPE_SYM,
     XOC_TYPE_VOID,
     XOC_TYPE_NULL,        
     XOC_TYPE_I8,

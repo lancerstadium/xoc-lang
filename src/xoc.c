@@ -5,7 +5,7 @@
 int main(int argc, char *argv[]) {
     compiler_t cp;
     compiler_init(&cp, NULL, 
-        "-19 + 18"
+        "! 'a' == (&0x0f * ~12) + 13e-1 / 6\n"
         , 
         &(compiler_option_t){
             .argc = argc,
@@ -16,8 +16,7 @@ int main(int argc, char *argv[]) {
     );
 
     lexer_eat(&cp.lex, XOC_TOK_NONE);   // start
-
-    parser_expr(&cp.prs);
+    parser_stmt(&cp.prs);
 
     // lexer_eat(&cp.lex, XOC_TOK_IDT);
     // lexer_eat(&cp.lex, XOC_TOK_EQ);
