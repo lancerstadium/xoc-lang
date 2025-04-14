@@ -2,10 +2,10 @@ include/xoc_api.h 45
 include/xoc_common.h 315
 include/xoc_compiler.h 41
 include/xoc_lexer.h 51
-include/xoc_parser.h 42
+include/xoc_parser.h 40
 include/xoc_types.h 83
 src/xoc.c 32
 src/xoc_common.c 290
 src/xoc_compiler.c 33
 src/xoc_lexer.c 652
-src/xoc_parser.c 91
+src/xoc_parser.c 123

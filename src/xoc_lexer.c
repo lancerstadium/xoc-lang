@@ -592,9 +592,9 @@ void lexer_next(lexer_t* lex) {
                 lex->prev.kind == XOC_TOK_RBRACE      ||
                 lex->prev.kind == XOC_TOK_CARET       ||
                 lex->prev.kind == XOC_TOK_IDT         ||
-                lex->prev.kind == XOC_TOK_INT_LIT         ||
-                lex->prev.kind == XOC_TOK_REAL_LIT        ||
-                lex->prev.kind == XOC_TOK_CHAR_LIT||
+                lex->prev.kind == XOC_TOK_INT_LIT     ||
+                lex->prev.kind == XOC_TOK_REAL_LIT    ||
+                lex->prev.kind == XOC_TOK_CHAR_LIT    ||
                 lex->prev.kind == XOC_TOK_STR_LIT) {
                 lex->cur.kind = XOC_TOK_EOLI;
             }

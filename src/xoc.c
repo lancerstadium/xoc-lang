@@ -5,7 +5,7 @@
 int main(int argc, char *argv[]) {
     compiler_t cp;
     compiler_init(&cp, NULL, 
-        "+ 18"
+        "-19 + 18"
         , 
         &(compiler_option_t){
             .argc = argc,

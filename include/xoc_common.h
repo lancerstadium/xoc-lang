@@ -32,10 +32,10 @@ typedef enum xoc_identkind {
 
 typedef enum xoc_typekind {
     XOC_TYPE_NONE,
-    XOC_TYPE_FORWARD,
+    XOC_TYPE_FWD,
     XOC_TYPE_VOID,
     XOC_TYPE_NULL,        
-    XOC_TYPE_INT8,
+    XOC_TYPE_I8,
     XOC_TYPE_I16,
     XOC_TYPE_I32,
     XOC_TYPE_I64,

@@ -14,11 +14,12 @@
 
 struct xoc_inst {
     opcode_t    op;
-    type_t      args[3];
+    type_t      args[4];
 };
 
 struct xoc_parser {
-    int iidx;
+    int iid;
+    int tid;
     type_t cur;
 
     inst_t* blk_cur;
@@ -37,6 +38,3 @@ void parser_free(parser_t* prs);
 
 
 #endif /* XOC_PARSER_H */
-
-
-
