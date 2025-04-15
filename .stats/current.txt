@@ -7,5 +7,5 @@ include/xoc_types.h 83
 src/xoc.c 31
 src/xoc_common.c 290
 src/xoc_compiler.c 33
-src/xoc_lexer.c 657
+src/xoc_lexer.c 658
 src/xoc_parser.c 227

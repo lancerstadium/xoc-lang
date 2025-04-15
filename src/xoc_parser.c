@@ -92,12 +92,12 @@ static void parser_factor(parser_t* prs) {
             case XOC_TOK_IDT: prs->cur = (type_t){ .kind = XOC_TYPE_WPTR, .WPtr = lex->cur.key }; break;
             default: prs->cur = (type_t){ .kind = XOC_TYPE_NONE , .Ptr = NULL }; break;
         }
-        parser_push_insts(prs, &(inst_t){
-            .op     = XOC_OP_PUSH,
-            .args   = { [0] = type_tmp(prs->tid), [1] = prs->cur }
-        }, 1);
-        prs->cur = type_tmp(prs->tid);
-        prs->tid++;
+        // parser_push_insts(prs, &(inst_t){
+        //     .op     = XOC_OP_PUSH,
+        //     .args   = { [0] = type_tmp(prs->tid), [1] = prs->cur }
+        // }, 1);
+        // prs->cur = type_tmp(prs->tid);
+        // prs->tid++;
     } else if (lex->cur.kind == XOC_TOK_PLUS || 
         lex->cur.kind == XOC_TOK_MINUS || 
         lex->cur.kind == XOC_TOK_NOT ||
@@ -192,7 +192,7 @@ static void parser_term_n(parser_t* prs, int n) {
     prs->tid++;
 }
 
-// expr => term
+// expr => term 
 void parser_expr(parser_t* prs) {
     parser_term_n(prs, 4);
 }
@@ -208,7 +208,7 @@ void parser_stmt(parser_t* prs) {
     prs->log->fmt(prs->info, "insts: %d/%d", pool_nsize(prs->blk_cur), pool_ncap(prs->blk_cur));
     for (int i = 0; i < pool_nsize(prs->blk_cur); i++) {
         inst_info(&prs->blk_cur[i], buf, 300);
-        prs->log->fmt(prs->info, "%s", buf);
+        printf("\n%s", buf);
     }
 }
 

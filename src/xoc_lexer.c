@@ -114,6 +114,7 @@ static inline bool lexer_getceq(lexer_t* lex, char ch) {
     return false;
 }
 
+
 static inline char lexer_escc(lexer_t* lex, bool* escaped) {
     if(escaped) *escaped = false;
     char ch = lexer_getc(lex);
@@ -175,8 +176,8 @@ static inline void lexer_mlcmt(lexer_t* lex) {
 static inline void lexer_spcmt(lexer_t* lex) {
     char ch = lex->buf[lex->buf_pos];
     while (ch && (ch == ' ' || ch == '\t' || ch == '\r' || ch == '/')) {
-        
         if(ch == '/') {
+            lexer_getc(lex);
             if(lexer_getceq(lex, '/')) {
                 lexer_slcmt(lex);
             } else if(lexer_getceq(lex, '*')) {

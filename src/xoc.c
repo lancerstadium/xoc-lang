@@ -5,7 +5,7 @@
 int main(int argc, char *argv[]) {
     compiler_t cp;
     compiler_init(&cp, NULL, 
-        "! 'a' == (&0x0f * ~12) + 13e-1 / 6\n"
+        "! 'a' / (&0x0f * ~12) + 13e-1 * 6\n"
         , 
         &(compiler_option_t){
             .argc = argc,
