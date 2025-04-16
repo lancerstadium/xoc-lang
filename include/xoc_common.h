@@ -37,6 +37,7 @@ typedef enum xoc_typekind {
     XOC_TYPE_TMP,
     XOC_TYPE_SYM,
     XOC_TYPE_IDT,
+    XOC_TYPE_BLK,
     XOC_TYPE_VOID,
     XOC_TYPE_NULL,        
     XOC_TYPE_I8,
