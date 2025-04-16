@@ -17,7 +17,7 @@ struct xoc_token {
     int pos;                                            /** Position in row */
     union {
         struct {
-            identname_t name;                           /** Identifier name */
+            // identname_t name;                           /** Identifier name */
             unsigned int key;                           /** Identifier hash key */
         };
         int64_t     Int;
@@ -36,11 +36,12 @@ struct xoc_lexer {
     token_t cur;
     token_t prev;
     pool_t* pool;
+    map_t*  syms;
     info_t* info;
     log_t* log;
 };
 
-int  lexer_init (lexer_t* lex, const char* src, bool trusted, pool_t* pool, info_t* info, log_t* log);
+int  lexer_init (lexer_t* lex, const char* src, bool trusted, pool_t* pool, map_t* syms, info_t* info, log_t* log);
 void lexer_free (lexer_t* lex);
 void lexer_next (lexer_t* lex);
 void lexer_nextf(lexer_t* lex);

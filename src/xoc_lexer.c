@@ -201,26 +201,27 @@ static inline void lexer_keyidt(lexer_t* lex) {
     lex->cur.kind = XOC_TOK_NONE;
     char ch = lex->buf[lex->buf_pos];
     int len = 0;
-
+    identname_t name;
     // Get identifier name
     while (xoc_isident(ch)) {
-        lex->cur.name[len] = ch;
+        name[len] = ch;
         len++;
         lexer_getc(lex);
         if(len > XOC_MAX_STR_LEN) {
-            lex->log->fmt(lex->info, "Identifier name is too long: %s", lex->cur.name);
+            lex->log->fmt(lex->info, "Identifier name is too long: %s", name);
             lex->cur.kind = XOC_TOK_NONE;
             return;
         }
         ch = lex->buf[lex->buf_pos];
     }
-    lex->cur.name[len] = '\0';
-    lex->cur.key = xoc_hash(lex->cur.name);
+    name[len] = '\0';
+    lex->cur.key = xoc_hash(name);
+    map_add(lex->syms, name, len);
     // lex->log->fmt(lex->info, "ident: %s, key: %08x", lex->cur.name, lex->cur.key);
     
     // Search keyword
     for (int i = 0; i < XOC_NUM_KEYWORD; i++) {
-        if(keyword_hash[i] == lex->cur.key && strcmp(lex->cur.name, token_mnemonic_tbl[XOC_TOK_BREAK + i]) == 0) {
+        if(keyword_hash[i] == lex->cur.key && strcmp(name, token_mnemonic_tbl[XOC_TOK_BREAK + i]) == 0) {
             lex->cur.kind = XOC_TOK_BREAK + i;
             return;
         }
@@ -532,7 +533,7 @@ static inline void lexer_next_eol(lexer_t* lex) {
 
 
 
-int lexer_init(lexer_t* lex, const char* src, bool trusted, pool_t* pool, info_t* info, log_t* log) {
+int lexer_init(lexer_t* lex, const char* src, bool trusted, pool_t* pool, map_t* syms, info_t* info, log_t* log) {
     // 1. Fill keyword hash
     for (int i = 0; i < XOC_NUM_KEYWORD; i++) {
         keyword_hash[i] = xoc_hash(token_mnemonic_tbl[XOC_TOK_BREAK + i]);
@@ -545,6 +546,7 @@ int lexer_init(lexer_t* lex, const char* src, bool trusted, pool_t* pool, info_t
 
     // 3. Initialize lexer
     lex->pool       = pool;
+    lex->syms       = syms;
     lex->info       = info;
     lex->log        = log;
     lex->is_trusted = trusted;
@@ -570,9 +572,9 @@ void lexer_free(lexer_t* lex) {
     }
 }
 
-void token_info(token_t* tok, char* buf, int len) {
+void token_info(token_t* tok, char* buf, int len, map_t* syms) {
     switch (tok->kind) {
-        case XOC_TOK_IDT        : snprintf(buf, len, "<'%s':`%s`>", tok->name , token_mnemonic_tbl[tok->kind]);   break;
+        case XOC_TOK_IDT        : snprintf(buf, len, "<'%s':`%s`>", map_get(syms, tok->key), token_mnemonic_tbl[tok->kind]);   break;
         case XOC_TOK_CHAR_LIT   : snprintf(buf, len, "<'%c':`%s`>" , (char)tok->Int  , token_mnemonic_tbl[tok->kind]);  break;
         case XOC_TOK_STR_LIT    : snprintf(buf, len, "<\"%s\":`%s`>" , tok->Str , token_mnemonic_tbl[tok->kind]); break;
         case XOC_TOK_INT_LIT    : snprintf(buf, len, "<%ld:`%s`>" , tok->Int  , token_mnemonic_tbl[tok->kind]);   break;
@@ -607,7 +609,7 @@ void lexer_next(lexer_t* lex) {
             lex->cur.kind = XOC_TOK_EOLI;
         }
         lex->prev = lex->cur;
-        token_info(&lex->cur, msg_buf, 300);
+        token_info(&lex->cur, msg_buf, 300, lex->syms);
         lex->log->fmt(lex->info, "%s", msg_buf);
     } while (lex->cur.kind == XOC_TOK_EOL);
 }

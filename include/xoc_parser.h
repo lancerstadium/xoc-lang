@@ -13,8 +13,9 @@
 #include "xoc_types.h"
 
 struct xoc_inst {
-    opcode_t    op;
-    type_t      args[4];
+    unsigned int label;
+    opcode_t     op;
+    type_t       args[4];
 };
 
 struct xoc_parser {
@@ -24,6 +25,7 @@ struct xoc_parser {
 
     inst_t* blk_cur;
     pool_t* blks;
+    map_t*  syms;
     lexer_t* lex;
 
     info_t* info;
@@ -31,8 +33,7 @@ struct xoc_parser {
 };
 
 
-void parser_init(parser_t* prs, lexer_t* lex, pool_t* blks);
-void parser_expr(parser_t* prs);
+void parser_init(parser_t* prs, lexer_t* lex, pool_t* blks, map_t* syms);
 void parser_stmt(parser_t* prs);
 void parser_free(parser_t* prs);
 

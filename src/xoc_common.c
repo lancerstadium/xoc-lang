@@ -138,6 +138,105 @@ void log_init(log_t* log, void* context, log_fn_t fn) {
     log->fmt = fn ? fn : log_fn_default;
 }
 
+
+void bucket_set(bucket_t* bucket, unsigned int key, char* ptr, int size) {
+    bucket->key = key;
+    if (size > 0) {
+        if (bucket->data) {
+            free(bucket->data);
+        }
+        bucket->data = malloc(size);
+        memcpy(bucket->data, ptr, size);
+    }
+}
+
+void map_init(map_t* map) {
+    map->size = 0;
+    memset(map->buk, 0, sizeof(bucket_t*) * XOC_MAX_HASH_SIZE);
+}
+
+bucket_t* map_find(map_t* map, unsigned int key) {
+    bucket_t* p = map->buk[key % XOC_MAX_HASH_SIZE];
+    while (p) {
+        if (p->key == key) {
+            return p;
+        }
+        p = p->next;
+    }
+    return NULL;
+}
+
+unsigned int map_add(map_t* map, char* ptr, int size) {
+    unsigned int key = xoc_hash(ptr);
+    bucket_t* p = map_find(map, key);
+    if (!p) {
+        int index = key % XOC_MAX_HASH_SIZE;
+        bucket_t* new_bucket = (bucket_t*)malloc(sizeof(bucket_t));
+        memset(new_bucket, 0, sizeof(bucket_t));
+        bucket_set(new_bucket, key, ptr, size);
+        p = map->buk[index];
+        if (!p) {
+            map->buk[index] = new_bucket;
+        } else {
+            while(p) {
+                if (!p->next) {
+                    p->next = new_bucket;
+                    break;
+                }
+                p = p->next;
+            }
+        }
+        map->size++;
+    }
+    return key;
+}
+
+char* map_get(map_t* map, unsigned int key) {
+    bucket_t* p = map_find(map, key);
+    if (p) {
+        return p->data;
+    }
+    return NULL;
+}
+
+void map_del(map_t* map, unsigned int key) {
+    // find prev & now bucket
+    bucket_t* prev = NULL;
+    bucket_t* p = map->buk[key % XOC_MAX_HASH_SIZE];
+    while (p) {
+        if (p->key == key) {
+            break;
+        }
+        prev = p;
+        p = p->next;
+    }
+
+    // delete
+    if (p) {
+        if (prev) {
+            prev->next = p->next;
+        } else {
+            map->buk[key % XOC_MAX_HASH_SIZE] = NULL;
+        }
+        free(p->data);
+        free(p);
+        map->size--;
+    }
+}
+
+void map_free(map_t* map) {
+    for (int i = 0; i < XOC_MAX_HASH_SIZE; i++) {
+        bucket_t* p = map->buk[i];
+        while (p) {
+            bucket_t* next = p->next;
+            free(p->data);
+            free(p);
+            p = next;
+        }
+    }
+}
+
+
 void pool_init(pool_t* pool) {
     pool->head = pool->tail = NULL;
 }
@@ -166,7 +265,23 @@ char* pool_alc(pool_t* pool, int size) {
     return pool->tail->data;
 }
 
+int pool_cap(pool_t* pool) {
+    blob_t *p = pool->head;
+    int cap = 0;
+    while (p) {
+        p = p->next;
+        cap++;
+    }
+    return cap;
+}
 
+char* pool_at(pool_t* pool, int idx) {
+    blob_t *p = pool->head;
+    while (p && idx--) {
+        p = p->next;
+    }
+    return p ? p->data : NULL;
+}
 
 blob_t* pool_nin(pool_t* pool, const char* ptr) {
     blob_t *p = pool->head;
@@ -182,6 +297,14 @@ blob_t* pool_nin(pool_t* pool, const char* ptr) {
         return NULL;
     }
     return p;
+}
+
+char* pool_nat(pool_t* pool, int idx) {
+    blob_t *p = pool->head;
+    while (p && idx--) {
+        p = p->next;
+    }
+    return p ? p->data + sizeof(uint32_t) * 3 : NULL;
 }
 
 blob_t* pool_nget(pool_t* pool, const char* ptr, uint32_t* align, uint32_t* size, uint32_t* capacity) {

@@ -29,14 +29,33 @@ static void parser_maplit(parser_t* prs);
 static void parser_structlit(parser_t* prs); 
 static void parser_closurelit(parser_t* prs);
 static void parser_compositelit(parser_t* prs);
+static void parser_enumconst(parser_t* prs);
+static void parser_designator(parser_t* prs);
+static void parser_designatorlist(parser_t* prs);
+static void parser_decl_assignlist(parser_t* prs);
+static void parser_decl_shortval(parser_t* prs);
 static void parser_factor(parser_t* prs);
 static void parser_term_n(parser_t* prs, int n);
-void parser_expr(parser_t* prs);
+static void parser_expr(parser_t* prs);
+static void parser_exprlist(parser_t* prs);
+static void parser_stmt_assign(parser_t* prs);
+static void parser_stmt_assignlist(parser_t* prs);
+static void parser_stmt_simple(parser_t* prs);
+static void parser_stmt_if(parser_t* prs);
+static void parser_expr_case(parser_t* prs);
+static void parser_stmt_switch(parser_t* prs);
+static void parser_forheader(parser_t* prs);
+static void parser_forinheader(parser_t* prs);
+static void parser_stmt_for(parser_t* prs);
+static void parser_stmt_return(parser_t* prs);
+static void parser_stmtlist(parser_t* prs);
+static void parser_block(parser_t* prs);
 
 
 static const char* type_mnemonic_tbl[] = {
     [XOC_TYPE_NONE]     = "none",
-    [XOC_TYPE_TMP]      = "%",
+    [XOC_TYPE_TMP]      = "$",
+    [XOC_TYPE_IDT]      = "$",
     [XOC_TYPE_I8]       = "i8",
     [XOC_TYPE_I16]      = "i16",
     [XOC_TYPE_I32]      = "i32",
@@ -56,10 +75,11 @@ static const char* type_mnemonic_tbl[] = {
     [XOC_TYPE_STR]      = "str",
 };
 
-void type_info(type_t* type, char* buf, int len) {
+void type_info(type_t* type, char* buf, int len, map_t* syms) {
     switch (type->kind) {
         case XOC_TYPE_SYM:  snprintf(buf, len, "%s", lexer_mnemonic(type->WPtr)); break;
         case XOC_TYPE_TMP:  snprintf(buf, len, "%s%ld", type_mnemonic_tbl[type->kind], type->WPtr); break;
+        case XOC_TYPE_IDT:  snprintf(buf, len, "%s%s", type_mnemonic_tbl[type->kind], map_get(syms, type->WPtr)); break;
         case XOC_TYPE_I64:  snprintf(buf, len, "%ld:%s", type->I64, type_mnemonic_tbl[type->kind]); break;
         case XOC_TYPE_F32:  snprintf(buf, len, "%f:%s", type->F32, type_mnemonic_tbl[type->kind]); break;
         case XOC_TYPE_F64:  snprintf(buf, len, "%lf:%s", type->F64, type_mnemonic_tbl[type->kind]); break;
@@ -69,17 +89,36 @@ void type_info(type_t* type, char* buf, int len) {
     }
 }
 
-void inst_info(inst_t* inst, char* buf, int len) {
+void inst_info(inst_t* inst, char* buf, int len, map_t* syms) {
+    char label[64];
     char arg[4][64];
-    type_info(&inst->args[0], arg[0], 64);
-    type_info(&inst->args[1], arg[1], 64);
-    type_info(&inst->args[2], arg[2], 64);
-    type_info(&inst->args[3], arg[3], 64);
+    if(inst->label != 0) {
+        snprintf(label, 64, " %%%-45s │\n│", map_get(syms, inst->label));
+    } else {
+        label[0] = 0;
+    }
+    type_info(&inst->args[0], arg[0], 64, syms);
+    type_info(&inst->args[1], arg[1], 64, syms);
+    type_info(&inst->args[2], arg[2], 64, syms);
+    type_info(&inst->args[3], arg[3], 64, syms);
     switch (inst->op) {
-        case XOC_OP_PUSH:   snprintf(buf, len, "PUSH   %s := %s", arg[0], arg[1]); break;
-        case XOC_OP_UNARY:  snprintf(buf, len, "UNARY  %s := %s %s", arg[1], arg[0], arg[2]); break;
-        case XOC_OP_BINARY: snprintf(buf, len, "BINARY %s := %s %s %s", arg[1], arg[2], arg[0], arg[3]); break;
-        default:            snprintf(buf, len, "UNKNOW %d", inst->op); break;
+        case XOC_OP_PUSH:   snprintf(buf, len, "%s  PUSH       %s = %s"         , label, arg[0], arg[1]); break;
+        case XOC_OP_UNARY:  snprintf(buf, len, "%s  UNARY      %s = %s %s"      , label, arg[1], arg[0], arg[2]); break;
+        case XOC_OP_BINARY: snprintf(buf, len, "%s  BINARY     %s = %s %s %s"   , label, arg[1], arg[2], arg[0], arg[3]); break;
+        case XOC_OP_ASSIGN: snprintf(buf, len, "%s  ASSIGN     %s = %s"         , label, arg[0], arg[1]); break;
+        default:            snprintf(buf, len, "%s  UNKNOW     %d"              , label, inst->op); break;
+    }
+}
+
+void blk_info(inst_t* blk, char* buf, int size, map_t* syms) {
+    int i;
+    for (i = 0; i < pool_nsize(blk); i++) {
+        inst_info(&blk[i], buf, 300, syms);
+        if(blk[i].label) {
+            printf("\n│%-103s│", buf);
+        } else {
+            printf("\n│%-48s│", buf);
+        }
     }
 }
 
@@ -89,6 +128,11 @@ type_t type_sym(tokenkind_t tk) {
 
 type_t type_tmp(int id) {
     return (type_t){ .kind = XOC_TYPE_TMP, .WPtr = id };
+}
+
+inst_t* parser_blk_alc(parser_t* prs, int cap) {
+    prs->blk_cur = (inst_t*)pool_nalc(prs->blks, sizeof(inst_t), cap);
+    return prs->blk_cur;
 }
 
 static int parser_term_level(parser_t* prs, tokenkind_t tk) {
@@ -123,6 +167,13 @@ void parser_push_insts(parser_t* prs, inst_t* insts, int size) {
     if(!res) {
         prs->log->fmt(prs->info, "Unable to push insts: %p(%u+%d/%u)", insts, pool_nsize(prs->blk_cur), size, pool_ncap(prs->blk_cur));
     }
+}
+
+lexer_t* parser_fork(parser_t* prs) {
+    lexer_t* org = prs->lex;
+    lexer_t fork = *org;
+    prs->lex = &fork;
+    return org;
 }
 
 // param_list => '(' { expr {',' expr } } ')'
@@ -168,10 +219,14 @@ static void parser_selectors(parser_t* prs) {
 static void parser_qualident(parser_t* prs) {
     lexer_t* lex = prs->lex;
     if (lex->cur.kind == XOC_TOK_IDT) {
+        // type_t fd = (type_t){ .kind = XOC_TYPE_IDT, .WPtr = xoc_hash("main") };
+        prs->cur = (type_t){ .kind = XOC_TYPE_IDT, .WPtr = lex->cur.key };
         lexer_next(lex);
         if (lex->cur.kind == XOC_TOK_COLONCOLON) {
             lexer_next(lex);
-            lexer_eat(lex, XOC_TOK_IDT);
+            if (lex->cur.kind == XOC_TOK_IDT) {
+                prs->cur = (type_t){ .kind = XOC_TYPE_IDT, .WPtr = lex->cur.key };
+            }
         }
     }
 }
@@ -375,6 +430,20 @@ static void parser_closuretype(parser_t* prs) {
     }
 }
 
+static bool parser_istype(parser_t* prs) {
+    tokenkind_t tk = prs->lex->cur.kind;
+    return tk == XOC_TOK_IDT ||
+           tk == XOC_TOK_WEAK ||
+           tk == XOC_TOK_CARET ||
+           tk == XOC_TOK_STR ||
+           tk == XOC_TOK_ENUM ||
+           tk == XOC_TOK_LBRACKET ||
+           tk == XOC_TOK_MAP ||
+           tk == XOC_TOK_STRUCT ||
+           tk == XOC_TOK_INTERFACE ||
+           tk == XOC_TOK_FN;
+}
+
 // type => qualident | ptrtype | strtype | enumtype | vectype | maptype | structtype | interfacetype | closuretype
 static void parser_type(parser_t* prs) {
     lexer_t* lex = prs->lex;
@@ -402,10 +471,12 @@ static void parser_type(parser_t* prs) {
 // typecast => type '(' expr ')'
 static void parser_typecast(parser_t* prs) {
     lexer_t* lex = prs->lex;
-    parser_type(prs);
-    lexer_eat(lex, XOC_TOK_LPAR);
-    parser_expr(prs);
-    lexer_eat(lex, XOC_TOK_RPAR);
+    if (parser_istype(prs)) {
+        parser_type(prs);
+        lexer_eat(lex, XOC_TOK_LPAR);
+        parser_expr(prs);
+        lexer_eat(lex, XOC_TOK_RPAR);
+    }
 }
 
 // veclit => '{' [expr {',' expr} [',']] '}'
@@ -489,28 +560,39 @@ static void parser_closurelit(parser_t* prs) {
         }
         lexer_eat(lex, XOC_TOK_OR);
     }
-    // parser_block(prs);
+    parser_block(prs);
 }
 
 // compositelit => [type] (veclit | maplit | structlit | closurelit)
 static void parser_compositelit(parser_t* prs) {
     lexer_t* lex = prs->lex;
     parser_type(prs);
-
+    if (lex->cur.kind == XOC_TOK_LBRACE) {
+        parser_veclit(prs);
+    } else if (lex->cur.kind == XOC_TOK_LPAR) {
+        parser_maplit(prs);
+    } else if (lex->cur.kind == XOC_TOK_LBRACE) {
+        parser_structlit(prs);
+    } else if (lex->cur.kind == XOC_TOK_OR) {
+        parser_closurelit(prs);
+    }
 }
 
 // enumconst => [type] '.' ident
 static void parser_enumconst(parser_t* prs) {
     lexer_t* lex = prs->lex;
     parser_type(prs);
-    lexer_eat(lex, XOC_TOK_PERIOD);
-    lexer_eat(lex, XOC_TOK_IDT);
+    if (lex->cur.kind == XOC_TOK_PERIOD) {
+        lexer_eat(lex, XOC_TOK_PERIOD);
+        lexer_eat(lex, XOC_TOK_IDT);
+    }
 }
 
 // designator => ( primary | typecast | compositelit | enumconst ) selectors
 static void parser_designator(parser_t* prs) {
     lexer_t* lex = prs->lex;
-    
+    parser_primary(prs);
+    parser_selectors(prs);
 }
 
 // designatorlist => designator { ',' designator }
@@ -523,11 +605,23 @@ static void parser_designatorlist(parser_t* prs) {
     }
 }
 
-// decl_assign => ident ':=' expr
-
 // decl_assignlist => identlist ':=' exprlist
+static void parser_decl_assignlist(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_IDT) {
+        parser_identlist(prs);
+        lexer_eat(lex, XOC_TOK_COLONEQ);
+        parser_exprlist(prs);
+    }
+}
 
-// decl_shortval => decl_assign | decl_assignlist
+// decl_shortval => decl_assignlist
+static void parser_decl_shortval(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_IDT) {
+        parser_decl_assignlist(prs);
+    }
+}
 
 // factor => int | real | char | str | ident | ('-' | '+' | '!' | '~' | '&') factor | '(' expr ')'
 static void parser_factor(parser_t* prs) {
@@ -543,8 +637,8 @@ static void parser_factor(parser_t* prs) {
             case XOC_TOK_INT_LIT: prs->cur = (type_t){ .kind = XOC_TYPE_I64 , .I64 = lex->cur.Int }; break;
             case XOC_TOK_REAL_LIT: prs->cur = (type_t){ .kind = XOC_TYPE_F64 , .F64 = lex->cur.Real }; break;
             case XOC_TOK_CHAR_LIT: prs->cur = (type_t){ .kind = XOC_TYPE_CHAR, .I64 = lex->cur.Int }; break;
-            case XOC_TOK_STR_LIT: prs->cur = (type_t){ .kind = XOC_TYPE_WPTR, .WPtr = lex->cur.key }; break;
-            case XOC_TOK_IDT: prs->cur = (type_t){ .kind = XOC_TYPE_WPTR, .WPtr = lex->cur.key }; break;
+            case XOC_TOK_STR_LIT: prs->cur = (type_t){ .kind = XOC_TYPE_STR, .WPtr = lex->cur.key }; break;
+            case XOC_TOK_IDT: prs->cur = (type_t){ .kind = XOC_TYPE_IDT, .WPtr = lex->cur.key }; break;
             default: prs->cur = (type_t){ .kind = XOC_TYPE_NONE , .Ptr = NULL }; break;
         }
         // parser_push_insts(prs, &(inst_t){
@@ -621,62 +715,220 @@ static void parser_term_n(parser_t* prs, int n) {
 }
 
 // expr => term 
-void parser_expr(parser_t* prs) {
+static void parser_expr(parser_t* prs) {
     parser_term_n(prs, 4);
 }
 
+// exprlist => expr {',' expr}
+static void parser_exprlist(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    parser_expr(prs);
+    while (lex->cur.kind == XOC_TOK_COMMA) {
+        lexer_next(lex);
+        parser_expr(prs);
+    }
+}
 
-
-// stmt_assign => designator ( ':=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '~=' | '<<=' | '>>=' ) expr
+// stmt_assign => designator ( '=' | ':=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '~=' | '<<=' | '>>=' ) expr
+static void parser_stmt_assign(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_IDT) {
+        parser_designator(prs);
+        type_t dsg = prs->cur;
+        lexer_eat(lex, XOC_TOK_EQ);
+        parser_expr(prs);
+        parser_push_insts(prs, &(inst_t){
+            .op     = XOC_OP_ASSIGN,
+            .args   = { [0] = dsg, [1] = prs->cur }
+        }, 1);
+    }
+}
 
 // stmt_assignlist => designatorlist '=' exprlist
+static void parser_stmt_assignlist(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_IDT) {
+        parser_designatorlist(prs);
+        lexer_eat(lex, XOC_TOK_EQ);
+        parser_exprlist(prs);
+    }
+}
 
 // simple_stmt => stmt_assign | stmt_assignlist | designator [( '++' | '--' )]
+static void parser_stmt_simple(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_IDT) {
+        parser_stmt_assign(prs);
+    // } else if (lex->cur.kind == XOC_TOK_IDT) {
+    //     parser_stmt_assignlist(prs);
+    } else {
+        parser_designator(prs);
+        if (lex->cur.kind == XOC_TOK_PLUSPLUS || lex->cur.kind == XOC_TOK_MINUSMINUS) {
+            lexer_next(lex);
+        }
+    }
+}
 
-// stmt_if = 'if' [ decl_shortval ';' ] expr block [ 'else' ( stmt_if | block ) ]
+// stmt_if = 'if' expr block [ 'else' ( stmt_if | block ) ]
+static void parser_stmt_if(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_IF) {
+        lexer_eat(lex, XOC_TOK_IF);
+        parser_expr(prs);
+        parser_block(prs);
+        prs->blk_cur[0].label = map_add(prs->syms, "if_blk", 7);
+        if (lex->cur.kind == XOC_TOK_ELSE) {
+            lexer_eat(lex, XOC_TOK_ELSE);
+            if (lex->cur.kind == XOC_TOK_IF) {
+                parser_stmt_if(prs);
+            } else {
+                parser_block(prs);
+                prs->blk_cur[0].label = map_add(prs->syms, "else_blk", 9);
+            }
+        }
+    }
+}
 
 // expr_case => 'case' expr {',' expr} ':' stmtlist
+static void parser_expr_case(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_CASE) {
+        lexer_eat(lex, XOC_TOK_CASE);
+        parser_expr(prs);
+        while (lex->cur.kind == XOC_TOK_COMMA) {
+            lexer_next(lex);
+            parser_expr(prs);
+        }
+        lexer_eat(lex, XOC_TOK_COLON);
+        parser_stmtlist(prs);
+    }
+}
 
 // stmt_switch => 'switch' [ decl_shortval ';' ] expr '{' { { expr_case } ['default' : stmtlist ] '}'
+static void parser_stmt_switch(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_SWITCH) {
+        lexer_eat(lex, XOC_TOK_SWITCH);
+        parser_expr(prs);
+        lexer_eat(lex, XOC_TOK_LBRACE);
+        parser_stmtlist(prs);
+        lexer_eat(lex, XOC_TOK_RBRACE);
+    }
+}
 
 // forheader => [decl_shortval ';'] expr [';' stmt_simple]
+static void parser_forheader(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_IDT) {
+        lexer_eat(lex, XOC_TOK_IDT);
+        if (lex->cur.kind == XOC_TOK_SEMICOLON) {
+            lexer_eat(lex, XOC_TOK_SEMICOLON);
+            parser_expr(prs);
+            if (lex->cur.kind == XOC_TOK_SEMICOLON) {
+                lexer_eat(lex, XOC_TOK_SEMICOLON);
+                parser_stmt_simple(prs);
+            }
+        }
+    }
+}
 
 // forinheader => ident [',' ident ['^']] 'in' expr
+static void parser_forinheader(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_IDT) {
+        lexer_eat(lex, XOC_TOK_IDT);
+        if (lex->cur.kind == XOC_TOK_IN) {
+            lexer_eat(lex, XOC_TOK_IN);
+            parser_expr(prs);
+        }
+    }
+}
 
 // stmt_for => 'for' (forheader | forinheader) block
+static void parser_stmt_for(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_FOR) {
+        lexer_eat(lex, XOC_TOK_FOR);
+        parser_forheader(prs);
+        parser_block(prs);
+    }
+}
 
 // stmt_return => 'return' [exprlist]
+static void parser_stmt_return(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_RETURN) {
+        lexer_eat(lex, XOC_TOK_RETURN);
+        parser_expr(prs);
+    }
+}
 
-// stmt => decl | block | stmt_simple | stmt_if | stmt_switch | stmt_for | 'break' | 'continue' | stmt_return
+// stmt =>  block | stmt_if | stmt_switch | stmt_for | 'break' | 'continue' | stmt_return | stmt_simple | decl
 void parser_stmt(parser_t* prs) {
-    // parse a statement
-    // lexer_t* lex = prs->lex;
-    char buf[300];
-    prs->blk_cur = (inst_t*)pool_nalc(prs->blks, sizeof(inst_t), 1);
-    prs->log->fmt(prs->info, "insts: %d/%d", pool_nsize(prs->blk_cur), pool_ncap(prs->blk_cur));
-    parser_expr(prs);
-    prs->log->fmt(prs->info, "insts: %d/%d", pool_nsize(prs->blk_cur), pool_ncap(prs->blk_cur));
-    for (int i = 0; i < pool_nsize(prs->blk_cur); i++) {
-        inst_info(&prs->blk_cur[i], buf, 300);
-        printf("\n%s", buf);
+    lexer_t* lex = prs->lex;
+    if(lex->cur.kind == XOC_TOK_LBRACE) {
+        parser_block(prs);
+    } else if (lex->cur.kind == XOC_TOK_IF) {
+        parser_stmt_if(prs);
+    } else if (lex->cur.kind == XOC_TOK_SWITCH) {
+        parser_stmt_switch(prs);
+    } else if (lex->cur.kind == XOC_TOK_FOR) {
+        parser_stmt_for(prs);
+    } else if (lex->cur.kind == XOC_TOK_BREAK) {
+        lexer_next(lex);
+    } else if (lex->cur.kind == XOC_TOK_CONTINUE) {
+        lexer_next(lex);
+    } else if (lex->cur.kind == XOC_TOK_RETURN) {
+        parser_stmt_return(prs);
+    } else {
+        parser_stmt_simple(prs);
     }
 }
 
 // stmtlist => stmt { ';' stmt }
+static void parser_stmtlist(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    parser_stmt(prs);
+    while (lex->cur.kind == XOC_TOK_SEMICOLON) {
+        lexer_next(lex);
+        parser_stmt(prs);
+    }
+}
 
 // block => '{' stmtlist '}'
+static void parser_block(parser_t* prs) {
+    lexer_t* lex = prs->lex;
+    if (lex->cur.kind == XOC_TOK_LBRACE) {
+        parser_blk_alc(prs, 1);
+        lexer_next(lex);
+        parser_stmtlist(prs);
+        lexer_eat(lex, XOC_TOK_RBRACE);
+    }
+}
 
-void parser_init(parser_t* prs, lexer_t* lex, pool_t* blks) {
+void parser_init(parser_t* prs, lexer_t* lex, pool_t* blks, map_t* syms) {
     prs->tid = 0;
     prs->blks = blks;
+    prs->syms = syms;
     prs->lex = lex;
     prs->info = lex->info;
     prs->log = lex->log;
 
     prs->cur.kind = XOC_TYPE_NONE;
     prs->cur.Ptr  = NULL;
+
+    parser_blk_alc(prs, 1);
 }
 
 void parser_free(parser_t* prs) {
-
+    char buf[300];
+    int n = 0;
+    inst_t* blk = (inst_t*)pool_nat(prs->blks, n);
+    printf("\n\n");
+    while (blk) {
+        printf("\n╭───────────[ID: %-3d Insts: %4d/%-4d]───────────╮", n, pool_nsize(blk), pool_ncap(blk));
+        blk_info(blk, buf, 300, prs->syms);
+        printf("\n╰────────────────────────────────────────────────╯\n");
+        blk = (inst_t*)pool_nat(prs->blks, ++n);
+    }
 }

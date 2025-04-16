@@ -21,6 +21,7 @@ enum {
     XOC_MAX_PAR_SIZE    = 16,                           /** Max number of parameters */
     XOC_MAX_BLK_NEST    = 100,                          /** Max number of block nest */
     XOC_MAX_BLK_GOTO    = 100,                          /** Max number of block goto */
+    XOC_MAX_HASH_SIZE   = 1024,                         /** Max number of hash table entries */
 };
 
 typedef enum xoc_identkind {
@@ -35,6 +36,7 @@ typedef enum xoc_typekind {
     XOC_TYPE_FWD,
     XOC_TYPE_TMP,
     XOC_TYPE_SYM,
+    XOC_TYPE_IDT,
     XOC_TYPE_VOID,
     XOC_TYPE_NULL,        
     XOC_TYPE_I8,
@@ -201,6 +203,8 @@ typedef struct xoc_info info_t;                         /** XOC Information for 
 typedef void (*xoc_log_fn)(void* context, const char* fmt, ...);
 typedef xoc_log_fn log_fn_t;                            /** XOC Log Function */
 typedef struct xoc_log log_t;                           /** XOC Error Information Report */
+typedef struct xoc_bucket bucket_t;                     /** XOC Hashmap Bucket */
+typedef struct xoc_map map_t;                           /** XOC Hashmap */
 typedef struct xoc_blob blob_t;                         /** XOC Memory Blob */
 typedef struct xoc_pool pool_t;                         /** XOC Memory Pool */
 typedef struct xoc_mod mod_t;                           /** XOC Module */
@@ -247,6 +251,17 @@ struct xoc_info {
 struct xoc_log {
     void* context;
     log_fn_t fmt;
+};
+
+struct xoc_bucket {
+    bucket_t* next;
+    unsigned int key;
+    char* data;
+};
+
+struct xoc_map {
+    int size;
+    bucket_t* buk[XOC_MAX_HASH_SIZE];
 };
 
 struct xoc_blob {
@@ -300,12 +315,20 @@ void info_setmsg(info_t* info, const char* fmt, va_list args);
 void info_free(info_t* info);
 void log_fn_info(void* context, const char* fmt, ...);
 void log_init(log_t* log, void* context, log_fn_t fn);
+void map_init(map_t* map);
+char* map_get(map_t* map, unsigned int key);
+unsigned int map_add(map_t* map, char* ptr, int size);
+void map_del(map_t* map, unsigned int key);
+void map_free(map_t* map);
 #define pool_nalign(ptr) (*(uint32_t*)((char*)(ptr) - 3 * sizeof(uint32_t)))
 #define pool_nsize(ptr) (*(uint32_t*)((char*)(ptr) - 2 * sizeof(uint32_t))) 
 #define pool_ncap(ptr) (*(uint32_t*)((char*)(ptr) - sizeof(uint32_t)))
 void pool_init(pool_t *pool);
 void pool_free(pool_t *pool);
+char* pool_at(pool_t* pool, int idx);
+int pool_cap(pool_t* pool);
 char* pool_alc(pool_t *pool, int size);
+char* pool_nat(pool_t* pool, int idx);
 blob_t* pool_nin(pool_t* pool, const char* ptr);
 blob_t* pool_nget(pool_t* pool, const char* ptr, uint32_t* align, uint32_t* size, uint32_t* capacity);
 blob_t* pool_nset(pool_t* pool, const char* ptr, uint32_t align, uint32_t size, uint32_t capacity);
