@@ -3,10 +3,15 @@
 #include <stdio.h>
 
 static char* test_stmt[] = {
-    // "a = \"sdsds\"",
-    // stmt_if | stmt_switch | stmt_for | 'break' | 'continue' | stmt_return
-    // "if a <= 10 { b = 2 + xx } else { s3 = 4 - b }",
-    "if a <= 10 - 1e-3 { a = a * b } else if a > 10 { s3 = 4 - b * &a  } else { s3 = 9 - b }",
+    // stmt_if
+    // "if x > 23 / 2 { m = 99 * 21.3 }",
+    // "if x > 23 / 2 { m = 99 * 21.3 } else { m = 0 }",
+    // "if x > 23 / 2 { m = 99 * 21.3 } else if x < 0 { m = 0 }",
+    // "if a <= 10 - 1e-3 { a = a * b } else if a > 10 { s3 = 4 - b * &a  } else { s3 = 9 - b }",
+    "if a <= 10 - 1e-3 { if a > 11 { b = b - 2 } else { bb = bb + aa } } else if a > 10 { s3 = 4 - b * &a  } else { s3 = 9 - b }",
+    // stmt_switch
+    "switch ",
+    // stmt_for | 'break' | 'continue' | stmt_return
     "a = 1 + 2 * 3\n",
     "std::ss = (! 'a' / (&0x0f * ~12) + 13e-1 * 6)\n"
 };

@@ -20,28 +20,21 @@ struct xoc_inst {
 
 typedef struct xoc_node node_t;
 
-struct xoc_node {
-    inst_t* blk;
-
-    int num_pred;
-    int num_succ;
-    node_t* pred;
-    node_t* succ;
-
-    node_t* next;
-};
-
 struct xoc_parser {
     int iid;
     int bid;
     int tid;
+    int lid;
     type_t cur;
 
-    node_t* root;
-
-    int bid_cur;
-    int bid_src;
-    unsigned int label;
+    // int bid_cur;
+    // int bid_src;
+    // int iid_cur;
+    // int iid_src;
+    unsigned int symstk[256];
+    int symstk_top;
+    // unsigned int if_lbl;
+    unsigned int sw_lbl;
 
     inst_t* blk_cur;
     pool_t* blks;
