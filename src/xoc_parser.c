@@ -184,8 +184,9 @@ void parser_symstk_set(parser_t* prs, unsigned int key) {
 
 
 inst_t* parser_blk_alc(parser_t* prs, int cap) {
-    prs->blk_cur = (inst_t*)pool_nalc(prs->blks, sizeof(inst_t), cap);
+    inst_t* blk_cur = (inst_t*)pool_nalc(prs->blks, sizeof(inst_t), cap);
     prs->bid++;
+    prs->blk_cur = blk_cur;
     prs->iid = 0;
     return prs->blk_cur;
 }
@@ -229,14 +230,14 @@ void parser_push_insts(parser_t* prs, inst_t* insts, int size) {
     prs->iid++;
 }
 
-inst_t* parser_switch_blk(parser_t* prs, inst_t* blk) {
-    if(pool_nin(prs->blks, (const char*)blk)) {
-        inst_t* cur = prs->blk_cur;
-        prs->blk_cur = blk;
-        prs->iid = pool_nsize(blk);
+inst_t* parser_blk_swc(parser_t* prs, int bid) {
+    inst_t* cur = (inst_t*)pool_nat(prs->blks, bid);
+    if(cur) {
+        prs->blk_cur = cur;
+        prs->iid = pool_nsize(cur);
         return cur;
     } else {
-        prs->log->fmt(prs->info, "Unable to switch blk: %p", blk);
+        prs->log->fmt(prs->info, "Unable to switch blk[%u]: %p", bid, cur);
         return NULL;
     }
 }
@@ -852,43 +853,39 @@ static void parser_stmt_if(parser_t* prs) {
     if (lex->cur.kind == XOC_TOK_IF) {
         lexer_eat(lex, XOC_TOK_IF);
         parser_expr(prs);
-        unsigned int org_lbl = parser_symstk_top(prs);
-        bool is_org = false;
-        if(!org_lbl) {
-            org_lbl = parser_add_label(prs, NULL);
-            prs->symstk[prs->symstk_top] = org_lbl;
-            is_org = true;
-        }
+        inst_t* org_blk = prs->blk_cur, *new_blk = NULL;
+        unsigned int new_lbl = parser_add_label(prs, NULL);
         parser_push_insts(prs, &(inst_t){
             .op     = XOC_OP_GOTO_IFN,
-            .args   = { [0] = type_lbl(org_lbl), [1] = prs->cur }
+            .args   = { [0] = type_lbl(new_lbl), [1] = prs->cur }
         }, 1);
-        int go_idx = prs->iid - 1;
         parser_block(prs);
         if (lex->cur.kind == XOC_TOK_ELSE) {
             lexer_eat(lex, XOC_TOK_ELSE);
-            parser_push_insts(prs, &(inst_t){
-                .op     = XOC_OP_GOTO,
-                .args   = { [0] = type_lbl(org_lbl) }
-            }, 1);
-            int el_idx = prs->iid - 1;
-            unsigned int new_lbl = parser_add_label(prs, NULL);
-            inst_t* go_inst = &prs->blk_cur[go_idx];
-            go_inst->args[0] = type_lbl(new_lbl);
-            parser_blk_alc(prs, 1);
-            prs->blk_cur[0].label = new_lbl;
+            unsigned org_bid = prs->bid, new_bid;
+            new_blk = parser_blk_alc(prs, 1);
+            new_blk[0].label = new_lbl;
             if (lex->cur.kind == XOC_TOK_IF) {
                 parser_stmt_if(prs);
             } else if (lex->cur.kind == XOC_TOK_LBRACE) {
-                go_inst = &prs->blk_cur[el_idx];
-                go_inst->args[0] = type_lbl(new_lbl);
                 parser_block(prs);
             }
-        }
-        if(is_org) {
-            parser_blk_alc(prs, 1);
-            prs->blk_cur[0].label = org_lbl;
-            prs->symstk[prs->symstk_top] = 0;
+            // new entry block
+            new_lbl = parser_add_label(prs, NULL);
+            new_blk = parser_blk_alc(prs, 1);
+            new_blk[0].label = new_lbl;
+            new_bid = prs->bid;
+            parser_blk_swc(prs, org_bid - 1);
+            inst_t* org_last = &prs->blk_cur[prs->iid - 1];
+            if(org_last->op == XOC_OP_GOTO) {
+                org_last->args[0] = type_lbl(new_lbl);
+            } else {
+                parser_push_insts(prs, &(inst_t){
+                    .op     = XOC_OP_GOTO,
+                    .args   = { [0] = type_lbl(new_lbl) }
+                }, 1);
+            }
+            parser_blk_swc(prs, new_bid - 1);
         }
     }
 }
@@ -916,13 +913,14 @@ static void parser_expr_case(parser_t* prs) {
             prs->tid += 2;
         }
         lexer_eat(lex, XOC_TOK_COLON);
-        parser_add_label(prs, NULL);
+        unsigned new_lbl = parser_add_label(prs, NULL);
         parser_push_insts(prs, &(inst_t){
             .op     = XOC_OP_GOTO_IFEQ,
-            .args   = { [0] = type_lbl(prs->symstk[prs->symstk_top]), [1] = lhs, [2] = rhs }
+            .args   = { [0] = type_lbl(new_lbl), [1] = lhs, [2] = rhs }
         }, 1);
+        inst_t* new_blk = parser_blk_alc(prs, 1);
+        new_blk[0].label = new_lbl;
         parser_stmtlist(prs);
-        
     }
 }
 
@@ -933,15 +931,31 @@ static void parser_stmt_switch(parser_t* prs) {
         lexer_eat(lex, XOC_TOK_SWITCH);
         parser_expr(prs);
         lexer_eat(lex, XOC_TOK_LBRACE);
-        while (lex->cur.kind == XOC_TOK_CASE) {
-            parser_expr_case(prs);
+        unsigned new_lbl = parser_add_label(prs, NULL);
+        while (lex->cur.kind == XOC_TOK_CASE || lex->cur.kind == XOC_TOK_DEFAULT) {
+            int org_bid = prs->bid;
+            prs->is_break = false;
+            if (lex->cur.kind == XOC_TOK_DEFAULT) {
+                lexer_eat(lex, XOC_TOK_DEFAULT);
+                lexer_eat(lex, XOC_TOK_COLON);
+                parser_stmtlist(prs);
+            } else if (lex->cur.kind == XOC_TOK_CASE) {
+                parser_expr_case(prs);
+            }
+            int new_bid = prs->bid;
+            if(prs->is_break) {
+                parser_blk_swc(prs, org_bid - 1);
+                parser_push_insts(prs, &(inst_t){
+                    .op     = XOC_OP_GOTO,
+                    .args   = { [0] = type_lbl(new_lbl) }
+                }, 1);
+                parser_blk_swc(prs, new_bid - 1);
+            }
         }
-        if (lex->cur.kind == XOC_TOK_DEFAULT) {
-            lexer_eat(lex, XOC_TOK_DEFAULT);
-            lexer_eat(lex, XOC_TOK_COLON);
-            parser_stmtlist(prs);
-        }
+        
         lexer_eat(lex, XOC_TOK_RBRACE);
+        inst_t* new_blk = parser_blk_alc(prs, 1);
+        new_blk[0].label = new_lbl;
     }
 }
 
@@ -998,14 +1012,13 @@ void parser_stmt(parser_t* prs) {
     if(lex->cur.kind == XOC_TOK_LBRACE) {
         parser_block(prs);
     } else if (lex->cur.kind == XOC_TOK_IF) {
-        parser_symstk_push(prs, 0);
         parser_stmt_if(prs);
-        parser_symstk_pop(prs);
     } else if (lex->cur.kind == XOC_TOK_SWITCH) {
         parser_stmt_switch(prs);
     } else if (lex->cur.kind == XOC_TOK_FOR) {
         parser_stmt_for(prs);
     } else if (lex->cur.kind == XOC_TOK_BREAK) {
+        prs->is_break = true;
         lexer_next(lex);
     } else if (lex->cur.kind == XOC_TOK_CONTINUE) {
         lexer_next(lex);

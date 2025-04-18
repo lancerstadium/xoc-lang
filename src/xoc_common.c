@@ -285,16 +285,11 @@ char* pool_at(pool_t* pool, int idx) {
 
 blob_t* pool_nin(pool_t* pool, const char* ptr) {
     blob_t *p = pool->head;
-    bool found = false;
     while (p) {
-        if(p->data == ptr - sizeof(uint32_t) * 3) {
-            found = true;
+        if(p->data + sizeof(uint32_t) * 3 == ptr) {
             break;
         }
         p = p->next;
-    }
-    if (!found) {
-        return NULL;
     }
     return p;
 }

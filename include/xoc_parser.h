@@ -36,6 +36,8 @@ struct xoc_parser {
     // unsigned int if_lbl;
     unsigned int sw_lbl;
 
+    bool is_break;
+
     inst_t* blk_cur;
     pool_t* blks;
     map_t*  syms;
@@ -47,6 +49,8 @@ struct xoc_parser {
 
 
 void parser_init(parser_t* prs, lexer_t* lex, pool_t* blks, map_t* syms);
+inst_t* parser_blk_alc(parser_t* prs, int cap);
+inst_t* parser_blk_swc(parser_t* prs, int bid);
 void parser_stmt(parser_t* prs);
 void parser_free(parser_t* prs);
 
