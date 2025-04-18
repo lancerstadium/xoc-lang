@@ -184,6 +184,7 @@ typedef enum xoc_opcode {
     XOC_OP_GOTO_IF,
     XOC_OP_GOTO_IFN,
     XOC_OP_GOTO_IFEQ,
+    XOC_OP_GOTO_IFNE,
     XOC_OP_CALL,
     XOC_OP_CALL_INDIRECT,
     XOC_OP_CALL_EXTERN,

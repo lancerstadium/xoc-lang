@@ -115,6 +115,7 @@ void inst_info(inst_t* inst, char* buf, int len, map_t* syms) {
         case XOC_OP_GOTO_IF:    snprintf(buf, len, "%s  GOTO_IF    %s, %s"          , label, arg[0], arg[1]); break;
         case XOC_OP_GOTO_IFN:   snprintf(buf, len, "%s  GOTO_IFN   %s, %s"          , label, arg[0], arg[1]); break;
         case XOC_OP_GOTO_IFEQ:  snprintf(buf, len, "%s  GOTO_IFEQ  %s, %s == %s"    , label, arg[0], arg[1], arg[2]); break;
+        case XOC_OP_GOTO_IFNE:  snprintf(buf, len, "%s  GOTO_IFNE  %s, %s != %s"    , label, arg[0], arg[1], arg[2]); break;
         default:                snprintf(buf, len, "%s  UNKNOW     %d"              , label, inst->op); break;
     }
 }
@@ -853,7 +854,7 @@ static void parser_stmt_if(parser_t* prs) {
     if (lex->cur.kind == XOC_TOK_IF) {
         lexer_eat(lex, XOC_TOK_IF);
         parser_expr(prs);
-        inst_t* org_blk = prs->blk_cur, *new_blk = NULL;
+        inst_t *new_blk = NULL;
         unsigned int new_lbl = parser_add_label(prs, NULL);
         parser_push_insts(prs, &(inst_t){
             .op     = XOC_OP_GOTO_IFN,
@@ -886,6 +887,9 @@ static void parser_stmt_if(parser_t* prs) {
                 }, 1);
             }
             parser_blk_swc(prs, new_bid - 1);
+        } else {
+            new_blk = parser_blk_alc(prs, 1);
+            new_blk[0].label = new_lbl;
         }
     }
 }
@@ -915,47 +919,72 @@ static void parser_expr_case(parser_t* prs) {
         lexer_eat(lex, XOC_TOK_COLON);
         unsigned new_lbl = parser_add_label(prs, NULL);
         parser_push_insts(prs, &(inst_t){
-            .op     = XOC_OP_GOTO_IFEQ,
+            .op     = XOC_OP_GOTO_IFNE,
             .args   = { [0] = type_lbl(new_lbl), [1] = lhs, [2] = rhs }
         }, 1);
+        parser_stmtlist(prs);
         inst_t* new_blk = parser_blk_alc(prs, 1);
         new_blk[0].label = new_lbl;
-        parser_stmtlist(prs);
     }
 }
 
-// stmt_switch => 'switch' [ decl_shortval ';' ] expr '{' { { expr_case } ['default' ':' stmtlist ] '}'
+// stmt_switch => 'switch' [ decl_shortval ';' ] expr '{' { { 'case' expr {',' expr} ':' stmtlist } ['default' ':' stmtlist ] '}'
 static void parser_stmt_switch(parser_t* prs) {
     lexer_t* lex = prs->lex;
     if (lex->cur.kind == XOC_TOK_SWITCH) {
         lexer_eat(lex, XOC_TOK_SWITCH);
         parser_expr(prs);
+        type_t lhs = prs->cur;
         lexer_eat(lex, XOC_TOK_LBRACE);
-        unsigned new_lbl = parser_add_label(prs, NULL);
+        unsigned trg_lbl = parser_add_label(prs, NULL);
         while (lex->cur.kind == XOC_TOK_CASE || lex->cur.kind == XOC_TOK_DEFAULT) {
-            int org_bid = prs->bid;
+            int org_bid = prs->bid, new_bid;
             prs->is_break = false;
             if (lex->cur.kind == XOC_TOK_DEFAULT) {
                 lexer_eat(lex, XOC_TOK_DEFAULT);
                 lexer_eat(lex, XOC_TOK_COLON);
                 parser_stmtlist(prs);
             } else if (lex->cur.kind == XOC_TOK_CASE) {
-                parser_expr_case(prs);
+                lexer_eat(lex, XOC_TOK_CASE);
+                parser_expr(prs);
+                type_t rhs = prs->cur;
+                while (lex->cur.kind == XOC_TOK_COMMA) {
+                    lexer_next(lex);
+                    parser_expr(prs);
+                    rhs = prs->cur;
+                    parser_push_insts(prs, (inst_t[]){{
+                            .op     = XOC_OP_BINARY,
+                            .args   = { [0] = type_sym(XOC_TOK_EQEQ), [1] = type_tmp(prs->tid), [2] = lhs, [3] = rhs }
+                        }, {
+                            .op     = XOC_OP_BINARY,
+                            .args   = { [0] = type_sym(XOC_TOK_OROR), [1] = type_tmp(prs->tid + 1), [2] = lhs, [3] = rhs }
+                        }
+                    }, 2);
+                    prs->tid += 2;
+                }
+                lexer_eat(lex, XOC_TOK_COLON);
+                unsigned int new_lbl = parser_add_label(prs, NULL);
+                parser_push_insts(prs, &(inst_t){
+                    .op     = XOC_OP_GOTO_IFNE,
+                    .args   = { [0] = type_lbl(new_lbl), [1] = lhs, [2] = rhs }
+                }, 1);
+                parser_stmtlist(prs);
+                inst_t* new_blk = parser_blk_alc(prs, 1);
+                new_blk[0].label = new_lbl;   
             }
-            int new_bid = prs->bid;
+            new_bid = prs->bid;
             if(prs->is_break) {
                 parser_blk_swc(prs, org_bid - 1);
                 parser_push_insts(prs, &(inst_t){
                     .op     = XOC_OP_GOTO,
-                    .args   = { [0] = type_lbl(new_lbl) }
+                    .args   = { [0] = type_lbl(trg_lbl) }
                 }, 1);
                 parser_blk_swc(prs, new_bid - 1);
             }
         }
-        
         lexer_eat(lex, XOC_TOK_RBRACE);
         inst_t* new_blk = parser_blk_alc(prs, 1);
-        new_blk[0].label = new_lbl;
+        new_blk[0].label = trg_lbl;
     }
 }
 
