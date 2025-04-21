@@ -3,6 +3,14 @@
 #include <stdio.h>
 
 static char* test_stmt[] = {
+    // decl_type
+    // "type a = int32",
+    // decl_const
+    // "const a = 16 - 7",
+    "const ( a = 12; b = 2 )",
+    // decl_var
+    "var a : str = 12",
+    "var ( a : int32 = 12; b : int32 = 2 )",
     // stmt_if
     // "if x > 23 / 2 { m = 99 * 21.3 }",
     // "if x > 23 / 2 { m = 99 * 21.3 } else { m = 0 }",
@@ -11,8 +19,13 @@ static char* test_stmt[] = {
     // "if a <= 10 - 1e-3 { if a > 11 { b = b - 2 } else if x == 3 + 3 { bb = bb + aa } ; a = a * b } else if a > 10 { s3 = 4 - b * &a  } else { s3 = 9 - b }",
     // stmt_switch
     // "switch a + 3 { case 1: a = 1; case 2: a = 2; default: a = 0; }",
-    "switch a + 3 { case 1: a = 1; if a >= 3 { xx = 9 * 43 }; break; case 2: a = 2; break; default: a = 0; break; }",
-    // stmt_for | 'break' | 'continue' | stmt_return
+    // "switch a + 3 { case 1: a = 1; if a >= 3 { xx = 9 * 43 }; break; case 2: a = 2; break; default: a = 0; break; }",
+    // stmt_for
+    "for i := 0; i < 10; i = i + 1 { a = a + i }",
+    // stmt_return
+    "return a - 3",
+    "return 1+1, 2-3",
+    // 'break' | 'continue' | stmt_return
     "a = 1 + 2 * 3\n",
     "std::ss = (! 'a' / (&0x0f * ~12) + 13e-1 * 6)\n"
 };

@@ -39,6 +39,7 @@ typedef enum xoc_typekind {
     XOC_TYPE_IDT,
     XOC_TYPE_BLK,
     XOC_TYPE_LBL,
+    XOC_TYPE_DVC,
     XOC_TYPE_VOID,
     XOC_TYPE_NULL,        
     XOC_TYPE_I8,
@@ -151,6 +152,7 @@ typedef enum xoc_tokenkind {
 
 typedef enum xoc_opcode {
     XOC_OP_NOP,
+    XOC_OP_REG,
     XOC_OP_PUSH,
     XOC_OP_PUSH_ZERO,
     XOC_OP_PUSH_LOCAL_PTR,
@@ -189,11 +191,17 @@ typedef enum xoc_opcode {
     XOC_OP_CALL_INDIRECT,
     XOC_OP_CALL_EXTERN,
     XOC_OP_CALL_BUILTIN,
-    XOC_OP_RETURN,
+    XOC_OP_RET,
     XOC_OP_ENTER_FRAME,
     XOC_OP_LEAVE_FRAME,
     XOC_OP_HALT
 } opcode_t;
+
+typedef enum xoc_devicekind {
+    XOC_DVC_NONE,
+    XOC_DVC_CPU,
+    XOC_DVC_GPU
+} devicekind_t;
 
 enum {
     XOC_NUM_KEYWORD = XOC_TOK_WEAK - XOC_TOK_BREAK + 1, /** Number of keywords */

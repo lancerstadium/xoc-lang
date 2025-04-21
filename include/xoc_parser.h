@@ -27,13 +27,9 @@ struct xoc_parser {
     int lid;
     type_t cur;
 
-    // int bid_cur;
-    // int bid_src;
-    // int iid_cur;
-    // int iid_src;
     unsigned int symstk[256];
     int symstk_top;
-    // unsigned int if_lbl;
+
     unsigned int sw_lbl;
 
     bool is_break;

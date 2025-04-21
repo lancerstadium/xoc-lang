@@ -317,7 +317,7 @@ static inline void lexer_ops(lexer_t* lex) {
             break;
         case '>':
             if(lexer_getceq(lex, '=')) {
-                lex->cur.kind = XOC_TOK_GREATER;
+                lex->cur.kind = XOC_TOK_GREATEREQ;
             } else if(lexer_getceq(lex, '>')) {
                 if (lexer_getceq(lex, '=')) {
                     lex->cur.kind = XOC_TOK_SHREQ;
