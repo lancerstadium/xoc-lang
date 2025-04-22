@@ -20,6 +20,10 @@ unsigned int xoc_hash(const char* str) {
     return hash;
 }
 
+int64_t xoc_align(int64_t size, int64_t align) {
+    return ((size + align - 1) / align) * align;
+}
+
 
 double xoc_pow(double base, int exp) {
     double result = 1.0;

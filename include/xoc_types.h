@@ -25,22 +25,6 @@ struct xoc_econst {
     const_t val;
 };
 
-struct xoc_param {
-    identname_t name;
-    unsigned int key;
-    const_t val;
-    type_t* type;
-};
-
-struct xoc_func {
-    bool is_method;
-    int num_param;
-    int num_default_param;
-    int offset;
-    param_t* param[XOC_MAX_PAR_SIZE];
-    type_t* type;
-};
-
 struct xoc_type {
     typekind_t kind;
     union {
@@ -78,6 +62,14 @@ struct xoc_ident {
         const_t constant;
     };
     info_t info;
+};
+
+struct xoc_func {
+    bool is_method;
+    int num_param;
+    int num_default_param;
+    int64_t offset;
+    type_t param[XOC_MAX_PAR_SIZE];
 };
 
  

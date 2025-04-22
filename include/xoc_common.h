@@ -22,6 +22,9 @@ enum {
     XOC_MAX_BLK_NEST    = 100,                          /** Max number of block nest */
     XOC_MAX_BLK_GOTO    = 100,                          /** Max number of block goto */
     XOC_MAX_HASH_SIZE   = 1024,                         /** Max number of hash table entries */
+    XOC_MIN_MEM_STACK   = 1024,                         /** Min number of stack (Bytes) */
+    XOC_MIN_MEM_CHUNK   = 64,                           /** Min number of heap chunk size (Bytes) */
+    XOC_MIN_MEM_PAGE    = 1024 * 1024,                  /** Min number of heap page size (Bytes) */
 };
 
 typedef enum xoc_identkind {
@@ -203,6 +206,63 @@ typedef enum xoc_devicekind {
     XOC_DVC_GPU
 } devicekind_t;
 
+typedef enum xoc_sysfnkind {
+    // -- I/O
+    XOC_SYSFN_PRINTF,
+    XOC_SYSFN_FPRINTF,
+    XOC_SYSFN_SPRINTF,
+    XOC_SYSFN_SCANF,
+    XOC_SYSFN_FSCANF,
+    XOC_SYSFN_SSCANF,
+    // -- Math
+    XOC_SYSFN_REAL,           // Integer to real at stack top (right operand)
+    XOC_SYSFN_REAL_LHS,       // Integer to real at stack top + 1 (left operand) - implicit calls only
+    XOC_SYSFN_ROUND,
+    XOC_SYSFN_TRUNC,
+    XOC_SYSFN_CEIL,
+    XOC_SYSFN_FLOOR,
+    XOC_SYSFN_ABS,
+    XOC_SYSFN_FABS,
+    XOC_SYSFN_SQRT,
+    XOC_SYSFN_SIN,
+    XOC_SYSFN_COS,
+    XOC_SYSFN_ATAN,
+    XOC_SYSFN_ATAN2,
+    XOC_SYSFN_EXP,
+    XOC_SYSFN_LOG,
+    // -- Memory
+    XOC_SYSFN_NEW,
+    XOC_SYSFN_MAKE,
+    XOC_SYSFN_MAKEFROMARR,    // Array to dynamic array - implicit calls only
+    XOC_SYSFN_MAKEFROMSTR,    // String to dynamic array - implicit calls only
+    XOC_SYSFN_MAKETOARR,      // Dynamic array to array - implicit calls only
+    XOC_SYSFN_MAKETOSTR,      // Character or dynamic array to string - implicit calls only
+    XOC_SYSFN_COPY,
+    XOC_SYSFN_APPEND,
+    XOC_SYSFN_INSERT,
+    XOC_SYSFN_DELETE,
+    XOC_SYSFN_SLICE,
+    XOC_SYSFN_SORT,
+    XOC_SYSFN_SORTFAST,
+    XOC_SYSFN_LEN,
+    XOC_SYSFN_CAP,
+    XOC_SYSFN_SIZEOF,
+    XOC_SYSFN_SIZEOFSELF,
+    XOC_SYSFN_SELFPTR,
+    XOC_SYSFN_SELFHASPTR,
+    XOC_SYSFN_SELFTYPEEQ,
+    XOC_SYSFN_TYPEPTR,
+    XOC_SYSFN_VALID,
+    // -- Maps
+    XOC_SYSFN_VALIDKEY,
+    XOC_SYSFN_KEYS,
+    // -- Fibers
+    XOC_SYSFN_RESUME,
+    // -- Misc
+    XOC_SYSFN_MEMUSAGE,
+    XOC_SYSFN_EXIT
+} sysfnkind_t;
+
 enum {
     XOC_NUM_KEYWORD = XOC_TOK_WEAK - XOC_TOK_BREAK + 1, /** Number of keywords */
 };
@@ -224,12 +284,16 @@ typedef struct xoc_modsrc modsrc_t;                     /** XOC Module Source */
 typedef struct xoc_mods mods_t;                         /** XOC Module List */
 typedef struct xoc_field field_t;                       /** XOC Type: field */
 typedef struct xoc_econst econst_t;                     /** XOC Type: enum constant */
-typedef struct xoc_param param_t;                       /** XOC Type: parameter */
 typedef struct xoc_func func_t;                         /** XOC Type: signature */
 typedef struct xoc_type type_t;                         /** XOC Type: tag type */
 typedef struct xoc_ident ident_t;                       /** XOC Type: identifier */
 typedef struct xoc_token token_t;                       /** XOC Lexer: Token */
 typedef struct xoc_lexer lexer_t;                       /** XOC Lexer: Lexer*/
+typedef struct xoc_heappage heappage_t;                 /** XOC Heap: Heap Page */
+typedef struct xoc_heap heap_t;                         /** XOC Heap: Heap */
+typedef struct xoc_chunkheader chunkheader_t;           /** XOC Heap: Chunk Header */
+typedef struct xoc_fiber fiber_t;                       /** XOC Fiber: Fiber */
+typedef struct xoc_engine engine_t;                     /** XOC Engine: Engine */
 typedef struct xoc_parser parser_t;                     /** XOC Parser: Parser */
 typedef struct xoc_compiler_option compiler_option_t;   /** XOC Compiler: Compiler Option */
 typedef struct xoc_compiler compiler_t;                 /** XOC Compiler: Compiler */
@@ -317,6 +381,7 @@ struct xoc_mods {
 
 char* xoc_strdup(const char* src);
 unsigned int xoc_hash(const char* str);
+int64_t xoc_align(int64_t size, int64_t align);
 double xoc_pow(double base, int exp);
 bool xoc_isident(char ch);
 int xoc_ch2digit(char ch, int base);

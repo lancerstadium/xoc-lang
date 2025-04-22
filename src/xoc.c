@@ -63,7 +63,18 @@ void test_map() {
     map_free(&map);
 }
 
+void test_engine() {
+    log_t log;
+    log_init(&log, NULL, NULL);
+    engine_t eng;
+    engine_init(&eng, XOC_MIN_MEM_STACK, true, &log);
+    
+    engine_free(&eng);
+}
+
 int main(int argc, char *argv[]) {
-    test_compiler(argc, argv);
+    // test_compiler(argc, argv);
+    // test_map();
+    test_engine();
     return 0;
 }

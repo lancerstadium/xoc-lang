@@ -9,8 +9,8 @@
 #ifndef XOC_PARSER_H
 #define XOC_PARSER_H
 
-#include "xoc_lexer.h"
-#include "xoc_types.h"
+#include "xoc_engine.h"
+
 
 struct xoc_inst {
     unsigned int label;
