@@ -153,7 +153,8 @@ void fiber_unwind_stk(fiber_t* fib) {
 
 
 void fiber_change_stk_ref_cnt(fiber_t* fib, char* ptr, int delta) {
-
+    if(ptr >= fib->stk_top && ptr < (fib)) {
+    }
 }
 
 
