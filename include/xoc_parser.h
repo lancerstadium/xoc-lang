@@ -11,15 +11,6 @@
 
 #include "xoc_engine.h"
 
-
-struct xoc_inst {
-    unsigned int label;
-    opcode_t     op;
-    type_t       args[4];
-};
-
-typedef struct xoc_node node_t;
-
 struct xoc_parser {
     int iid;
     int bid;

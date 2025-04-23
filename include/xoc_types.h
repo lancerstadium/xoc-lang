@@ -19,12 +19,6 @@ struct xoc_field {
     type_t* type;
 };
 
-struct xoc_econst {
-    identname_t name;
-    unsigned int key;
-    const_t val;
-};
-
 struct xoc_type {
     typekind_t kind;
     union {
@@ -59,9 +53,16 @@ struct xoc_ident {
         void* ptr;
         int64_t offset;
         int64_t mod_val;
-        const_t constant;
+        arg_t constant;
     };
     info_t info;
+};
+
+struct xoc_param {
+    int64_t num_arg;
+    int64_t num_res;
+    int64_t num_alg;
+    int64_t arg[];
 };
 
 struct xoc_func {
@@ -70,6 +71,12 @@ struct xoc_func {
     int num_default_param;
     int64_t offset;
     type_t param[XOC_MAX_PAR_SIZE];
+};
+
+struct xoc_inst {
+    unsigned int label;
+    opcode_t     op;
+    type_t       args[4];
 };
 
  

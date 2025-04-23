@@ -25,6 +25,8 @@ enum {
     XOC_MIN_MEM_STACK   = 1024,                         /** Min number of stack (Bytes) */
     XOC_MIN_MEM_CHUNK   = 64,                           /** Min number of heap chunk size (Bytes) */
     XOC_MIN_MEM_PAGE    = 1024 * 1024,                  /** Min number of heap page size (Bytes) */
+    XOC_RET_FROM_ENG    = -2,                           /** Code: Return from engine */
+    XOC_RET_FROM_FIB    = -1,                           /** Code: Return from fiber */
 };
 
 typedef enum xoc_identkind {
@@ -269,7 +271,7 @@ enum {
 
 typedef char xoc_identname[XOC_MAX_STR_LEN + 1];        /** XOC identifier name type 0 */
 typedef xoc_identname identname_t;                      /** XOC identifier name type 1 */
-typedef struct xoc_const const_t;                       /** XOC Type: constant */
+typedef struct xoc_arg arg_t;                           /** XOC Type: constant */
 typedef struct xoc_inst inst_t;                         /** XOC Instruction */
 typedef struct xoc_info info_t;                         /** XOC Information for Debug/Error */
 typedef void (*xoc_log_fn)(void* context, const char* fmt, ...);
@@ -283,22 +285,26 @@ typedef struct xoc_mod mod_t;                           /** XOC Module */
 typedef struct xoc_modsrc modsrc_t;                     /** XOC Module Source */
 typedef struct xoc_mods mods_t;                         /** XOC Module List */
 typedef struct xoc_field field_t;                       /** XOC Type: field */
-typedef struct xoc_econst econst_t;                     /** XOC Type: enum constant */
 typedef struct xoc_func func_t;                         /** XOC Type: signature */
+typedef struct xoc_param param_t;                       /** XOC Type: parameter layerout */
 typedef struct xoc_type type_t;                         /** XOC Type: tag type */
 typedef struct xoc_ident ident_t;                       /** XOC Type: identifier */
 typedef struct xoc_token token_t;                       /** XOC Lexer: Token */
 typedef struct xoc_lexer lexer_t;                       /** XOC Lexer: Lexer*/
 typedef struct xoc_heappage heappage_t;                 /** XOC Heap: Heap Page */
 typedef struct xoc_heap heap_t;                         /** XOC Heap: Heap */
+typedef void (*xoc_extfn) (arg_t* arg, arg_t* res);     /** XOC External Function */
+typedef xoc_extfn extfn_t;                              /** XOC External Function */
 typedef struct xoc_chunkheader chunkheader_t;           /** XOC Heap: Chunk Header */
 typedef struct xoc_fiber fiber_t;                       /** XOC Fiber: Fiber */
+typedef void (*xoc_sysfn) (fiber_t* fib);               /** XOC System Function */
+typedef xoc_sysfn sysfn_t;                              /** XOC System Function */
 typedef struct xoc_engine engine_t;                     /** XOC Engine: Engine */
 typedef struct xoc_parser parser_t;                     /** XOC Parser: Parser */
 typedef struct xoc_compiler_option compiler_option_t;   /** XOC Compiler: Compiler Option */
 typedef struct xoc_compiler compiler_t;                 /** XOC Compiler: Compiler */
 
-struct xoc_const {
+struct xoc_arg {
     union {
         int8_t      I8;
         uint8_t     U8;
