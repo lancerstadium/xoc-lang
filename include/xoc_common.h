@@ -20,7 +20,7 @@ enum {
     XOC_MAX_MOD_SIZE    = 1024,                         /** Max number of modules */
     XOC_MAX_PAR_SIZE    = 16,                           /** Max number of parameters */
     XOC_MAX_BLK_NEST    = 100,                          /** Max number of block nest */
-    XOC_MAX_BLK_GOTO    = 100,                          /** Max number of block goto */
+    XOC_MAX_BLK_JMP     = 100,                          /** Max number of block JMP */
     XOC_MAX_HASH_SIZE   = 1024,                         /** Max number of hash table entries */
     XOC_MIN_MEM_STACK   = 1024,                         /** Min number of stack (Bytes) */
     XOC_MIN_MEM_CHUNK   = 64,                           /** Min number of heap chunk size (Bytes) */
@@ -187,11 +187,11 @@ typedef enum xoc_opcode {
     XOC_OP_ASSERT_RANGE,
     XOC_OP_WEAKEN_PTR,
     XOC_OP_STRENGTHEN_PTR,
-    XOC_OP_GOTO,
-    XOC_OP_GOTO_IF,
-    XOC_OP_GOTO_IFN,
-    XOC_OP_GOTO_IFEQ,
-    XOC_OP_GOTO_IFNE,
+    XOC_OP_JMP,
+    XOC_OP_JMP_IF,
+    XOC_OP_JMP_IFN,
+    XOC_OP_JMP_IFEQ,
+    XOC_OP_JMP_IFNE,
     XOC_OP_CALL,
     XOC_OP_CALL_INDIRECT,
     XOC_OP_CALL_EXTERN,
@@ -271,7 +271,7 @@ enum {
 
 typedef char xoc_identname[XOC_MAX_STR_LEN + 1];        /** XOC identifier name type 0 */
 typedef xoc_identname identname_t;                      /** XOC identifier name type 1 */
-typedef struct xoc_arg arg_t;                           /** XOC Type: constant */
+typedef struct xoc_arg arg_t;                           /** XOC Argument: 64-bits */
 typedef struct xoc_inst inst_t;                         /** XOC Instruction */
 typedef struct xoc_info info_t;                         /** XOC Information for Debug/Error */
 typedef void (*xoc_log_fn)(void* context, const char* fmt, ...);
@@ -284,7 +284,6 @@ typedef struct xoc_pool pool_t;                         /** XOC Memory Pool */
 typedef struct xoc_mod mod_t;                           /** XOC Module */
 typedef struct xoc_modsrc modsrc_t;                     /** XOC Module Source */
 typedef struct xoc_mods mods_t;                         /** XOC Module List */
-typedef struct xoc_field field_t;                       /** XOC Type: field */
 typedef struct xoc_func func_t;                         /** XOC Type: signature */
 typedef struct xoc_param param_t;                       /** XOC Type: parameter layerout */
 typedef struct xoc_type type_t;                         /** XOC Type: tag type */
@@ -301,6 +300,7 @@ typedef void (*xoc_sysfn) (fiber_t* fib);               /** XOC System Function 
 typedef xoc_sysfn sysfn_t;                              /** XOC System Function */
 typedef struct xoc_engine engine_t;                     /** XOC Engine: Engine */
 typedef struct xoc_parser parser_t;                     /** XOC Parser: Parser */
+typedef struct xoc_gen gen_t;                           /** XOC Generator: Generator */
 typedef struct xoc_compiler_option compiler_option_t;   /** XOC Compiler: Compiler Option */
 typedef struct xoc_compiler compiler_t;                 /** XOC Compiler: Compiler */
 

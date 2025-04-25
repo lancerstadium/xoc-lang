@@ -12,15 +12,9 @@
 
 #include "xoc_common.h"
 
-struct xoc_field {
-    identname_t name;
-    unsigned int key;
-    int offset;
-    type_t* type;
-};
-
 struct xoc_type {
     typekind_t kind;
+    unsigned int key;
     union {
         int8_t      I8;
         uint8_t     U8;
@@ -35,6 +29,8 @@ struct xoc_type {
         float       F32;
         double      F64;
     };
+    type_t* base;
+    type_t* next;
 };
 
 struct xoc_ident {
@@ -78,6 +74,9 @@ struct xoc_inst {
     opcode_t     op;
     type_t       args[4];
 };
+
+
+int type_size(type_t* type);
 
  
 #endif /* XOC_TYPES_H */
