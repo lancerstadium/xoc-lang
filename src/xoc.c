@@ -52,8 +52,8 @@ void test_compiler(int argc, char *argv[]) {
 void test_map() {
     map_t map;
     map_init(&map);
-    unsigned int key = map_add(&map, "a", 1);
-    printf("key: %u, size: %d\n", key, map.size);
+    uint64_t key = map_add(&map, "a", 1);
+    printf("key: %lu, size: %d\n", key, map.size);
     char* val = map_get(&map, key);
     printf("val: %s, size: %d\n", val, map.size);
     char* val2 = map_get(&map, 0);

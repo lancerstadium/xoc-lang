@@ -16,17 +16,14 @@ struct xoc_parser {
     int bid;
     int tid;
     int lid;
-    type_t cur;
-
-    unsigned int symstk[256];
-    int symstk_top;
-
-    unsigned int sw_lbl;
+    type_t* cur;
 
     bool is_break;
 
     inst_t* blk_cur;
     pool_t* blks;
+    ident_t* idt_cur;
+    pool_t* idts;
     map_t*  syms;
     lexer_t* lex;
 
@@ -35,7 +32,7 @@ struct xoc_parser {
 };
 
 
-void parser_init(parser_t* prs, lexer_t* lex, pool_t* blks, map_t* syms);
+void parser_init(parser_t* prs, lexer_t* lex, pool_t* blks, pool_t* idts, map_t* syms);
 inst_t* parser_blk_alc(parser_t* prs, int cap);
 inst_t* parser_blk_swc(parser_t* prs, int bid);
 void parser_stmt(parser_t* prs);

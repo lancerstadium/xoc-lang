@@ -22,10 +22,10 @@ struct xoc_compiler_option {
 };
 
 struct xoc_compiler {
-    pool_t      syms;   // string symbols
-    pool_t      blks;   // insn blocks
+    pool_t      idts;       // ident symbols
+    pool_t      blks;       // insn blocks
     mods_t      mods;
-    map_t       sym_tbl; // symbol table
+    map_t       sym_tbl;    // symbol table
 
     lexer_t     lex;
     parser_t    prs;

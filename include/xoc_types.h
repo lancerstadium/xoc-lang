@@ -14,44 +14,28 @@
 
 struct xoc_type {
     typekind_t kind;
-    unsigned int key;
-    union {
-        int8_t      I8;
-        uint8_t     U8;
-        int16_t     I16;
-        uint16_t    U16;
-        int32_t     I32;
-        uint32_t    U32;
-        int64_t     I64;
-        uint64_t    U64;
-        void*       Ptr;
-        uint64_t    WPtr;
-        float       F32;
-        double      F64;
-    };
+    uint64_t key;
+    arg_t val;
     type_t* base;
     type_t* next;
 };
 
 struct xoc_ident {
+    uint64_t key;
+
     identkind_t kind;
-    identname_t name;
-    bool is_export;
-    bool is_global;
+    char* name;
+
+    uint64_t mod;
     bool is_used;
     bool is_temp;
-    int blk;
-    int mod;
-    int func_offset;
-    unsigned int key;
-    ident_t *next;
+    bool is_export;
+    bool is_global;
+
     union {
-        void* ptr;
         int64_t offset;
-        int64_t mod_val;
         arg_t constant;
     };
-    info_t info;
 };
 
 struct xoc_param {
@@ -70,13 +54,33 @@ struct xoc_func {
 };
 
 struct xoc_inst {
-    unsigned int label;
-    opcode_t     op;
-    type_t       args[4];
+    uint64_t label;
+    opcode_t     opc;
+    type_t*      opr[4];
 };
 
-
+type_t* type_alc(typekind_t kind);
+void type_free(type_t* type);
+type_t* type_i8(int8_t i8);
+type_t* type_u8(uint8_t u8);
+type_t* type_i16(int16_t i16);
+type_t* type_u16(uint16_t u16);
+type_t* type_i32(int32_t i32);
+type_t* type_u32(uint32_t u32);
+type_t* type_i64(int64_t i64);
+type_t* type_u64(uint64_t u64);
+type_t* type_f32(float f32);
+type_t* type_f64(double f64);
+type_t* type_char(char c);
+type_t* type_str(uint64_t key);
+type_t* type_tok(tokenkind_t tk);
+type_t* type_tmp(int id);
+type_t* type_idt(uint64_t key);
+type_t* type_blk(int id);
+type_t* type_lbl(uint64_t key);
+type_t* type_dvc(devicekind_t dvc);
 int type_size(type_t* type);
-
+void type_info(type_t* type, char* buf, int len, map_t* syms);
+void inst_info(inst_t* inst, char* buf, int len, map_t* syms);
  
 #endif /* XOC_TYPES_H */

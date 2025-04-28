@@ -88,7 +88,7 @@ static const char* token_mnemonic_tbl[] = {
     [XOC_TOK_EOF]       = "EOF",
 };
 
-static unsigned int keyword_hash[XOC_NUM_KEYWORD];  /** Keyword hash */
+static uint64_t keyword_hash[XOC_NUM_KEYWORD];  /** Keyword hash */
 static inline char lexer_getc(lexer_t* lex);
 static inline bool lexer_getceq(lexer_t* lex, char ch);
 static inline char lexer_escc(lexer_t* lex, bool* escaped);

@@ -30,6 +30,7 @@ enum {
 };
 
 typedef enum xoc_identkind {
+    XOC_IDT_LABEL,                                      /** Identifier: label */
     XOC_IDT_CONST,                                      /** Identifier: constant */
     XOC_IDT_VAR,                                        /** Identifier: variable */
     XOC_IDT_TYPE,                                       /** Identifier: type */
@@ -40,7 +41,7 @@ typedef enum xoc_typekind {
     XOC_TYPE_NONE,
     XOC_TYPE_FWD,
     XOC_TYPE_TMP,
-    XOC_TYPE_SYM,
+    XOC_TYPE_TOK,
     XOC_TYPE_IDT,
     XOC_TYPE_BLK,
     XOC_TYPE_LBL,
@@ -337,7 +338,7 @@ struct xoc_log {
 
 struct xoc_bucket {
     bucket_t* next;
-    unsigned int key;
+    uint64_t key;
     char* data;
 };
 
@@ -358,7 +359,7 @@ struct xoc_pool {
 
 struct xoc_mod {
     bool is_compiled;
-    unsigned int key;                                   /** Path Hash */
+    uint64_t key;                                   /** Path Hash */
     void* impl_lib;
     char* alias[XOC_MAX_MOD_SIZE];
     char path[XOC_MAX_STR_LEN + 1];
@@ -369,7 +370,7 @@ struct xoc_mod {
 struct xoc_modsrc {
     bool is_trusted;
     char* src;
-    unsigned int key;                                   /** Path Hash */
+    uint64_t key;                                   /** Path Hash */
     char path[XOC_MAX_STR_LEN + 1];
     char folder[XOC_MAX_STR_LEN + 1];
     char name[XOC_MAX_STR_LEN + 1];
@@ -386,7 +387,7 @@ struct xoc_mods {
 };
 
 char* xoc_strdup(const char* src);
-unsigned int xoc_hash(const char* str);
+uint64_t xoc_hash(const char* str);
 int64_t xoc_align(int64_t size, int64_t align);
 double xoc_pow(double base, int exp);
 bool xoc_isident(char ch);
@@ -399,9 +400,9 @@ void info_free(info_t* info);
 void log_fn_info(void* context, const char* fmt, ...);
 void log_init(log_t* log, void* context, log_fn_t fn);
 void map_init(map_t* map);
-char* map_get(map_t* map, unsigned int key);
-unsigned int map_add(map_t* map, char* ptr, int size);
-void map_del(map_t* map, unsigned int key);
+char* map_get(map_t* map, uint64_t key);
+uint64_t map_add(map_t* map, char* ptr, int size);
+void map_del(map_t* map, uint64_t key);
 void map_free(map_t* map);
 #define pool_nalign(ptr) (*(uint32_t*)((char*)(ptr) - 3 * sizeof(uint32_t)))
 #define pool_nsize(ptr) (*(uint32_t*)((char*)(ptr) - 2 * sizeof(uint32_t))) 

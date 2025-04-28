@@ -11,8 +11,8 @@ char* xoc_strdup(const char* src) {
     return strdup(src);
 }
 
-unsigned int xoc_hash(const char* str) {
-    unsigned int hash = 5381;
+uint64_t xoc_hash(const char* str) {
+    uint64_t hash = 5381;
     char ch;
     while ((ch = *str++)) {
         hash = ((hash << 5) + hash) + ch;
@@ -143,7 +143,7 @@ void log_init(log_t* log, void* context, log_fn_t fn) {
 }
 
 
-void bucket_set(bucket_t* bucket, unsigned int key, char* ptr, int size) {
+void bucket_set(bucket_t* bucket, uint64_t key, char* ptr, int size) {
     bucket->key = key;
     if (size > 0) {
         if (bucket->data) {
@@ -159,7 +159,7 @@ void map_init(map_t* map) {
     memset(map->buk, 0, sizeof(bucket_t*) * XOC_MAX_HASH_SIZE);
 }
 
-bucket_t* map_find(map_t* map, unsigned int key) {
+bucket_t* map_find(map_t* map, uint64_t key) {
     bucket_t* p = map->buk[key % XOC_MAX_HASH_SIZE];
     while (p) {
         if (p->key == key) {
@@ -170,8 +170,8 @@ bucket_t* map_find(map_t* map, unsigned int key) {
     return NULL;
 }
 
-unsigned int map_add(map_t* map, char* ptr, int size) {
-    unsigned int key = xoc_hash(ptr);
+uint64_t map_add(map_t* map, char* ptr, int size) {
+    uint64_t key = xoc_hash(ptr);
     bucket_t* p = map_find(map, key);
     if (!p) {
         int index = key % XOC_MAX_HASH_SIZE;
@@ -195,7 +195,7 @@ unsigned int map_add(map_t* map, char* ptr, int size) {
     return key;
 }
 
-char* map_get(map_t* map, unsigned int key) {
+char* map_get(map_t* map, uint64_t key) {
     bucket_t* p = map_find(map, key);
     if (p) {
         return p->data;
@@ -203,7 +203,7 @@ char* map_get(map_t* map, unsigned int key) {
     return NULL;
 }
 
-void map_del(map_t* map, unsigned int key) {
+void map_del(map_t* map, uint64_t key) {
     // find prev & now bucket
     bucket_t* prev = NULL;
     bucket_t* p = map->buk[key % XOC_MAX_HASH_SIZE];
@@ -411,3 +411,4 @@ char* pool_npop(pool_t* pool, const char* ptr, int size) {
         return NULL;
     }
 }
+

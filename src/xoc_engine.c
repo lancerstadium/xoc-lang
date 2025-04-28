@@ -287,9 +287,9 @@ void engine_loop(engine_t* eng) {
             log->fmt(NULL, "Stack overflow %ld/%d", fib->stk_top - fib->stk, fib->stk_size);
             break;
         }
-        switch(fib->code[fib->pc].op) {
+        switch(fib->code[fib->pc].opc) {
             default: {
-                log->fmt(NULL, "Unknown op %d", fib->code[fib->pc].op);
+                log->fmt(NULL, "Unknown op %d", fib->code[fib->pc].opc);
                 break;
             }
         }

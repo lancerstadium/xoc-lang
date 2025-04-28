@@ -16,7 +16,7 @@ struct xoc_token {
     int row;                                            /** Line number */
     int pos;                                            /** Position in row */
     union {
-        unsigned int key;                               /** Identifier hash key */
+        uint64_t key;                               /** Identifier hash key */
         int64_t     Int;
         uint64_t    Uint;
         char*       Str;
