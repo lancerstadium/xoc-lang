@@ -132,6 +132,23 @@ void parser_push_insts(parser_t* prs, inst_t* insts, int size) {
     prs->iid++;
 }
 
+void parser_push_idents(parser_t* prs, ident_t* idts, int size) {
+    char* res = pool_npush(prs->idts, (char**)&prs->idt_cur, (char*)idts, size);
+    if(!res) {
+        prs->log->fmt(prs->info, "Unable to push idents: %p(%u+%d/%u)", idts, pool_nsize(prs->idt_cur), size, pool_ncap(prs->idt_cur));
+    }
+}
+
+ident_t* parser_get_ident(parser_t* prs, uint64_t key) {
+    for (int i = 0; i < pool_nsize(prs->idts); i++) {
+        if (prs->idt_cur[i].key == key) {
+            return &prs->idt_cur[i];
+        }
+    }
+    return NULL;
+}
+
+
 inst_t* parser_blk_swc(parser_t* prs, int bid) {
     inst_t* cur = (inst_t*)pool_nat(prs->blks, bid);
     if(cur) {
@@ -154,7 +171,7 @@ uint64_t parser_add_label(parser_t* prs, char* name) {
     int len = strlen(label);
     prs->lid++;
     uint64_t key = map_add(prs->syms, label, len + 1);
-    pool_npush(prs->idts, (char**)&prs->idt_cur, (char*)&(ident_t){
+    parser_push_idents(prs, &(ident_t){
         .kind = XOC_IDT_LABEL,
         .name = map_get(prs->syms, key),
         .key = key
@@ -318,17 +335,34 @@ static void parser_maptype(parser_t* prs) {
 static void parser_identlist(parser_t* prs) {
     lexer_t* lex = prs->lex;
     if (lex->cur.kind == XOC_TOK_IDT) {
+        uint64_t key = lex->cur.key;
+        type_t* first = type_idt(key);
+        prs->cur = first;
         lexer_next(lex);
-        while (lex->cur.kind == XOC_TOK_MUL) {
+        if (lex->cur.kind == XOC_TOK_MUL) {
             lexer_next(lex);
         }
+        parser_push_idents(prs, &(ident_t){
+            .kind = XOC_IDT_VAR,
+            .name = map_get(prs->syms, key),
+            .key = key
+        }, 1);
         while (lex->cur.kind == XOC_TOK_COMMA) {
             lexer_next(lex);
             if (lex->cur.kind == XOC_TOK_IDT) {
+                key = lex->cur.key;
+                type_t* next = type_idt(key);
+                first->next = next;
+                first = next;
                 lexer_next(lex);
                 if (lex->cur.kind == XOC_TOK_MUL) {
                     lexer_next(lex);
                 }
+                parser_push_idents(prs, &(ident_t){
+                    .kind = XOC_IDT_VAR,
+                    .name = map_get(prs->syms, key),
+                    .key = key
+                }, 1);
             }
         }
     }
@@ -339,11 +373,18 @@ static void parser_typedidentlist(parser_t* prs) {
     lexer_t* lex = prs->lex;
     if (lex->cur.kind == XOC_TOK_IDT) {
         parser_identlist(prs);
+        type_t *head = prs->cur, * idt = prs->cur;
         lexer_eat(lex, XOC_TOK_COLON);
         if (lex->cur.kind == XOC_TOK_ELLIPSIS) {
             lexer_next(lex);
         }
         parser_type(prs);
+        type_t* tp = prs->cur;
+        while(idt) {
+            idt->base = tp;
+            idt = idt->next;
+        }
+        prs->cur = head;
     }
 }
 
@@ -352,36 +393,68 @@ static void parser_signature(parser_t* prs) {
     lexer_t* lex = prs->lex;
     if (lex->cur.kind == XOC_TOK_LPAR) {
         lexer_next(lex);
-        if (lex->cur.kind != XOC_TOK_RPAR) {
+        type_t* head, *first;
+        while (lex->cur.kind != XOC_TOK_RPAR) {
             parser_typedidentlist(prs);
+            head = prs->cur;
+            first = prs->cur;
             if (lex->cur.kind == XOC_TOK_EQ) {
                 lexer_next(lex);
                 parser_expr(prs);
+                // type_t* expr = prs->cur;
+                // while(first) {
+                //     first->base = expr;
+                //     first = first->next;
+                // }
             }
             while (lex->cur.kind == XOC_TOK_COMMA) {
                 lexer_next(lex);
                 parser_typedidentlist(prs);
+                type_t* next_head = prs->cur, *next_first = prs->cur;
                 if (lex->cur.kind == XOC_TOK_EQ) {
                     lexer_next(lex);
                     parser_expr(prs);
+                    // type_t* expr = prs->cur;
+                    // while(next_first) {
+                    //     next_first->base = expr;
+                    //     next_first = next_first->next;
+                    // }
                 }
+                // first = head;
+                // do {
+                //     first = first->next;
+                // } while(first->next);
+                // first->next = next_head;
             }
         }
         lexer_eat(lex, XOC_TOK_RPAR);
         if (lex->cur.kind == XOC_TOK_COLON) {
             lexer_next(lex);
+            type_t* type_head;
             if (lex->cur.kind == XOC_TOK_LPAR) {
                 lexer_next(lex);
                 parser_type(prs);
+                type_head = prs->cur;
+                type_t* type_first = prs->cur;
                 while (lex->cur.kind == XOC_TOK_COMMA) {
                     lexer_next(lex);
                     parser_type(prs);
+                    type_t* type_next = prs->cur;
+                    type_first->next = type_next;
+                    type_first = type_next;
                 }
                 lexer_eat(lex, XOC_TOK_RPAR);
             } else {
                 parser_type(prs);
+                type_head = prs->cur;
             }
+            // first = head;
+            // do {
+            //     first = first->next;
+            // } while(first->next);
+            // first->next = type_head;
         }
+        prs->cur = head;
     }
 }
 
@@ -660,6 +733,11 @@ static void parser_decl_const(parser_t* prs) {
                 .opc     = XOC_OP_REG,
                 .opr   = { [0] = prs->cur, [1] =  type_dvc(XOC_DVC_CPU) }
             }, 1);
+            parser_push_idents(prs, &(ident_t){
+                .kind = XOC_IDT_CONST,
+                .name = map_get(prs->syms, key),
+                .key = key
+            }, 1);
         } else if (lex->cur.kind == XOC_TOK_LPAR) {
             lexer_next(lex);
             while (lex->cur.kind != XOC_TOK_RPAR) {
@@ -676,6 +754,11 @@ static void parser_decl_const(parser_t* prs) {
                         .opc     = XOC_OP_REG,
                         .opr   = { [0] = prs->cur, [1] =  type_dvc(XOC_DVC_CPU) }
                     }, 1);
+                    parser_push_idents(prs, &(ident_t){
+                        .kind = XOC_IDT_CONST,
+                        .name = map_get(prs->syms, key),
+                        .key = key
+                    }, 1);
                 }
                 lexer_eat(lex, XOC_TOK_SEMICOLON);
             }
@@ -690,14 +773,36 @@ static void parser_decl_fullvar(parser_t* prs) {
         lexer_next(lex);
         if (lex->cur.kind == XOC_TOK_IDT) {
             parser_typedidentlist(prs);
+            type_t* tidt = prs->cur;
             lexer_eat(lex, XOC_TOK_EQ);
             parser_exprlist(prs);
+            type_t* expr = prs->cur;
+            while(tidt && expr) {
+                parser_push_insts(prs, &(inst_t){
+                    .label  = tidt->val.WPtr,
+                    .opc    = XOC_OP_REG,
+                    .opr    = { [0] = expr, [1] =  type_dvc(XOC_DVC_CPU) }
+                }, 1);
+                tidt = tidt->next;
+                expr = expr->next;
+            }
         } else if (lex->cur.kind == XOC_TOK_LPAR) {
             lexer_next(lex);
             while (lex->cur.kind != XOC_TOK_RPAR) {
                 parser_typedidentlist(prs);
+                type_t* tidt = prs->cur;
                 lexer_eat(lex, XOC_TOK_EQ);
                 parser_exprlist(prs);
+                type_t* expr = prs->cur;
+                while(tidt && expr) {
+                    parser_push_insts(prs, &(inst_t){
+                        .label  = tidt->val.WPtr,
+                        .opc    = XOC_OP_REG,
+                        .opr    = { [0] = expr, [1] =  type_dvc(XOC_DVC_CPU) }
+                    }, 1);
+                    tidt = tidt->next;
+                    expr = expr->next;
+                }
                 lexer_eat(lex, XOC_TOK_SEMICOLON);
             }
         }
@@ -735,11 +840,20 @@ static void parser_decl_fn(parser_t* prs) {
             lexer_eat(lex, XOC_TOK_RPAR);
         }
         if (lex->cur.kind == XOC_TOK_IDT) {
+            uint64_t key = lex->cur.key;
+            type_t* idt = type_idt(key);
             lexer_next(lex);
             if (lex->cur.kind == XOC_TOK_MUL) {
                 lexer_next(lex);
             }
             parser_signature(prs);
+            type_t* proto = prs->cur;
+            parser_push_idents(prs, &(ident_t){
+                .kind = XOC_IDT_VAR,
+                .name = map_get(prs->syms, key),
+                .key = key,
+                .proto = type_fn(key, proto)
+            }, 1);
             if (lex->cur.kind == XOC_TOK_LBRACE) {
                 parser_block(prs);
             }
@@ -788,7 +902,7 @@ static void parser_factor(parser_t* prs) {
             case XOC_TOK_REAL_LIT: parser_type_set(prs, type_f64(lex->cur.Real)); break;
             case XOC_TOK_CHAR_LIT: parser_type_set(prs, type_char(lex->cur.Int)); break;
             case XOC_TOK_STR_LIT: parser_type_set(prs, type_str(lex->cur.key)); break;
-            case XOC_TOK_IDT: parser_type_set(prs, type_str(lex->cur.key)); break;
+            case XOC_TOK_IDT: parser_type_set(prs, type_idt(lex->cur.key)); break;
             default: prs->cur = parser_type_set(prs, type_alc(XOC_TYPE_NONE)); break;
         }
     } else if (lex->cur.kind == XOC_TOK_PLUS || 
@@ -866,10 +980,15 @@ static void parser_expr(parser_t* prs) {
 static void parser_exprlist(parser_t* prs) {
     lexer_t* lex = prs->lex;
     parser_expr(prs);
+    type_t* first = prs->cur, *head = prs->cur;
     while (lex->cur.kind == XOC_TOK_COMMA) {
         lexer_next(lex);
         parser_expr(prs);
+        type_t* next = prs->cur;
+        first->next = next;
+        first = next;
     }
+    prs->cur = head;
 }
 
 // stmt_assign => designator ( '=' | ':=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '~=' | '<<=' | '>>=' ) expr
@@ -1132,26 +1251,28 @@ void parser_init(parser_t* prs, lexer_t* lex, pool_t* blks, pool_t* idts, map_t*
     parser_idt_alc(prs, 1);
 }
 
+
+
 void parser_free(parser_t* prs) {
-    char buf[300];
+    char buf[360];
     int n = 0;
     inst_t* blk = (inst_t*)pool_nat(prs->blks, n);
     printf("\n\n");
 
     // Print the idents
+    printf("\n╭────────────[Ident Symbol: %4d/%-4d]────────────╮", pool_nsize(prs->idt_cur), pool_ncap(prs->idt_cur));
     for(int i = 0; i < pool_nsize(prs->idt_cur); i++) {
         ident_t* idt = &prs->idt_cur[i];
-        switch (idt->kind) {
-            case XOC_IDT_LABEL: printf("%s -> label\n", idt->name); break;
-            case XOC_IDT_VAR: printf("%s -> var\n", idt->name); break;
-            case XOC_IDT_CONST: printf("%s -> const\n", idt->name); break;
-        }
+        char idt_buf[64];
+        ident_info(idt, idt_buf, 64);
+        printf("\n%s", idt_buf);
     }
+    printf("\n╰─────────────────────────────────────────────────╯\n");
 
     // Print the blocks
     while (blk) {
         printf("\n╭───────────[ID: #%-3d Insts: %4d/%-4d]───────────╮", n, pool_nsize(blk), pool_ncap(blk));
-        blk_info(blk, buf, 300, prs->syms);
+        blk_info(blk, buf, 360, prs->syms);
         printf("\n╰─────────────────────────────────────────────────╯\n");
         blk = (inst_t*)pool_nat(prs->blks, ++n);
     }

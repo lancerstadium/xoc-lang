@@ -42,6 +42,7 @@ typedef enum xoc_typekind {
     XOC_TYPE_FWD,
     XOC_TYPE_TMP,
     XOC_TYPE_TOK,
+    XOC_TYPE_TYP,
     XOC_TYPE_IDT,
     XOC_TYPE_BLK,
     XOC_TYPE_LBL,

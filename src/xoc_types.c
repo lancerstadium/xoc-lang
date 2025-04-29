@@ -32,6 +32,7 @@ static const char* type_mnemonic_tbl[] = {
     [XOC_TYPE_DYNARRAY] = "[..]",
     [XOC_TYPE_ARRAY]    = "[]",
     [XOC_TYPE_MAP]      = "map",
+    [XOC_TYPE_FN]       = "fn",
 };
 
 static const char* device_mnemonic_tbl[] = {
@@ -150,10 +151,32 @@ type_t* type_tmp(int id) {
     return type;
 }
 
+int key_is_type(uint64_t key) {
+    if(key == xoc_hash(type_mnemonic_tbl[XOC_TYPE_I8])) return XOC_TYPE_I8;
+    if(key == xoc_hash(type_mnemonic_tbl[XOC_TYPE_U8])) return XOC_TYPE_U8;
+    if(key == xoc_hash(type_mnemonic_tbl[XOC_TYPE_I16])) return XOC_TYPE_I16;
+    if(key == xoc_hash(type_mnemonic_tbl[XOC_TYPE_U16])) return XOC_TYPE_U16;
+    if(key == xoc_hash(type_mnemonic_tbl[XOC_TYPE_I32])) return XOC_TYPE_I32;
+    if(key == xoc_hash(type_mnemonic_tbl[XOC_TYPE_U32])) return XOC_TYPE_U32;
+    if(key == xoc_hash(type_mnemonic_tbl[XOC_TYPE_I64])) return XOC_TYPE_I64;
+    if(key == xoc_hash(type_mnemonic_tbl[XOC_TYPE_U64])) return XOC_TYPE_U64;
+    if(key == xoc_hash(type_mnemonic_tbl[XOC_TYPE_F32])) return XOC_TYPE_F32;
+    if(key == xoc_hash(type_mnemonic_tbl[XOC_TYPE_F64])) return XOC_TYPE_F64;
+    return -1;
+}
+
+
 type_t* type_idt(uint64_t key) {
     type_t* type = type_alc(XOC_TYPE_IDT);
-    type->val.WPtr = key;
-    return type;
+    int res = key_is_type(key);
+    if(res != -1) {
+        type->kind = XOC_TYPE_TYP;
+        type->key = key;
+        type->val.I64 = res;
+    } else {
+        type->val.WPtr = key;
+        return type;
+    }
 }
 
 type_t* type_blk(int id) {
@@ -171,6 +194,13 @@ type_t* type_lbl(uint64_t key) {
 type_t* type_dvc(devicekind_t dvc) {
     type_t* type = type_alc(XOC_TYPE_DVC);
     type->val.WPtr = dvc;
+    return type;
+}
+
+type_t* type_fn(uint64_t key, type_t* proto) {
+    type_t* type = type_alc(XOC_TYPE_FN);
+    type->key = key;
+    type->base = proto;
     return type;
 }
 
@@ -207,6 +237,7 @@ void type_info(type_t* type, char* buf, int len, map_t* syms) {
     switch (type->kind) {
         case XOC_TYPE_TOK:      snprintf(buf, len, "%s", lexer_mnemonic(type->val.WPtr)); break;
         case XOC_TYPE_TMP:      snprintf(buf, len, "%s%ld", type_mnemonic_tbl[type->kind], type->val.WPtr); break;
+        case XOC_TYPE_TYP:      snprintf(buf, len, "%s", type_mnemonic_tbl[type->val.I64]); break;
         case XOC_TYPE_IDT:      snprintf(buf, len, "%s%s", type_mnemonic_tbl[type->kind], map_get(syms, type->val.WPtr)); break;
         case XOC_TYPE_BLK:      snprintf(buf, len, "%s%ld", type_mnemonic_tbl[type->kind], type->val.WPtr); break;
         case XOC_TYPE_LBL:      snprintf(buf, len, "%s%s", type_mnemonic_tbl[type->kind], map_get(syms, type->val.WPtr)); break;
@@ -215,7 +246,6 @@ void type_info(type_t* type, char* buf, int len, map_t* syms) {
         case XOC_TYPE_F32:      snprintf(buf, len, "%f:%s", type->val.F32, type_mnemonic_tbl[type->kind]); break;
         case XOC_TYPE_F64:      snprintf(buf, len, "%lf:%s", type->val.F64, type_mnemonic_tbl[type->kind]); break;
         case XOC_TYPE_CHAR:     snprintf(buf, len, "'%c':%s", (char)type->val.I64, type_mnemonic_tbl[type->kind]); break;
-        case XOC_TYPE_STR:      snprintf(buf, len, "\"%s\":%s", (char*)type->val.WPtr, type_mnemonic_tbl[type->kind]); break;
         default:                snprintf(buf, len, "%s", type_mnemonic_tbl[type->kind]); break;
     }
 }
@@ -245,5 +275,29 @@ void inst_info(inst_t* inst, char* buf, int len, map_t* syms) {
         case XOC_OP_JMP_IFNE:   snprintf(buf, len, "%s  JMP_IFNE   %s, %s != %s"    , label, opr[0], opr[1], opr[2]); break;
         case XOC_OP_RET:        snprintf(buf, len, "%s  RET        "                , label); break;
         default:                snprintf(buf, len, "%s  UNKNOW     %d"              , label, inst->opc); break;
+    }
+}
+
+
+void ident_info(ident_t* idt, char* buf, int len) {
+    if(idt->kind == XOC_IDT_VAR && idt->proto) {
+        char protobuf[64];
+        type_t* arg = idt->proto->base;
+        size_t protobuf_len = 0;
+        snprintf(protobuf, 64, "%s_", idt->name);
+        while(arg) {
+            if(arg->base) {
+                protobuf_len = strlen(protobuf);
+                snprintf(protobuf + protobuf_len, 64, "%s_", type_mnemonic_tbl[arg->base->kind]);
+            }
+            arg = arg->next;
+        }
+                                snprintf(buf, len, "│ %-41s %c %c F │"              , protobuf , idt->is_export ? 'E' : '-', idt->is_global ? 'G' : '-'); return;
+    }
+    switch (idt->kind) {
+        case XOC_IDT_LABEL:     snprintf(buf, len, "│ %-41s %c %c L │"              , idt->name, idt->is_export ? 'E' : '-', idt->is_global ? 'G' : '-'); break;
+        case XOC_IDT_VAR:       snprintf(buf, len, "│ %-41s %c %c V │"              , idt->name, idt->is_export ? 'E' : '-', idt->is_global ? 'G' : '-'); break;
+        case XOC_IDT_CONST:     snprintf(buf, len, "│ %-41s %c %c C │"              , idt->name, idt->is_export ? 'E' : '-', idt->is_global ? 'G' : '-'); break;
+        default:                snprintf(buf, len, "│ %-41s %c %c ? │"              , idt->name, idt->is_export ? 'E' : '-', idt->is_global ? 'G' : '-'); break;
     }
 }

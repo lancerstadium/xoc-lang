@@ -6,11 +6,13 @@ static char* test_stmt[] = {
     // decl_type
     // "type a = int32",
     // decl_const
-    // "const a = 16 - 7",
-    "const ( a = 12; b = 2 )",
+    // "const acc = 16 - 7",
+    // "const ( a = 12; b = 2 )",
     // decl_var
-    // "var a : str = 12",
-    // "var ( a : int32 = 12; b : int32 = 2 )",
+    // "var axv : i32 = 12",
+    // "var ( a : i32 = 12; b : i32 = 2 )",
+    // decl_fn
+    "fn foo(a : i32, b : i32) : i32",
     // stmt_if
     // "if x > 23 / 2 { m = 99 * 21.3 }",
     // "if x > 23 / 2 { m = 99 * 21.3 } else { m = 0 }",

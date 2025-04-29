@@ -20,6 +20,13 @@ struct xoc_type {
     type_t* next;
 };
 
+struct xoc_func {
+    bool is_method;
+    int64_t offset;
+    int num_param;
+    type_t* param;
+};
+
 struct xoc_ident {
     uint64_t key;
 
@@ -35,6 +42,7 @@ struct xoc_ident {
     union {
         int64_t offset;
         arg_t constant;
+        type_t* proto;
     };
 };
 
@@ -45,13 +53,7 @@ struct xoc_param {
     int64_t arg[];
 };
 
-struct xoc_func {
-    bool is_method;
-    int num_param;
-    int num_default_param;
-    int64_t offset;
-    type_t param[XOC_MAX_PAR_SIZE];
-};
+
 
 struct xoc_inst {
     uint64_t label;
@@ -79,8 +81,10 @@ type_t* type_idt(uint64_t key);
 type_t* type_blk(int id);
 type_t* type_lbl(uint64_t key);
 type_t* type_dvc(devicekind_t dvc);
+type_t* type_fn(uint64_t key, type_t* proto);
 int type_size(type_t* type);
 void type_info(type_t* type, char* buf, int len, map_t* syms);
 void inst_info(inst_t* inst, char* buf, int len, map_t* syms);
+void ident_info(ident_t* idt, char* buf, int len);
  
 #endif /* XOC_TYPES_H */
