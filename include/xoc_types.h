@@ -39,10 +39,11 @@ struct xoc_ident {
     bool is_export;
     bool is_global;
 
+    type_t* proto;
+
     union {
         int64_t offset;
         arg_t constant;
-        type_t* proto;
     };
 };
 
@@ -63,6 +64,7 @@ struct xoc_inst {
 
 type_t* type_alc(typekind_t kind);
 void type_free(type_t* type);
+type_t* type_any(uint64_t key);
 type_t* type_i8(int8_t i8);
 type_t* type_u8(uint8_t u8);
 type_t* type_i16(int16_t i16);
@@ -77,7 +79,7 @@ type_t* type_char(char c);
 type_t* type_str(uint64_t key);
 type_t* type_tok(tokenkind_t tk);
 type_t* type_tmp(int id);
-type_t* type_idt(uint64_t key);
+// type_t* type_idt(uint64_t key);
 type_t* type_blk(int id);
 type_t* type_lbl(uint64_t key);
 type_t* type_dvc(devicekind_t dvc);

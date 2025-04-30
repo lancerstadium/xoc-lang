@@ -8,10 +8,11 @@
 static const char* type_mnemonic_tbl[] = {
     [XOC_TYPE_NONE]     = "none",
     [XOC_TYPE_TMP]      = "$",
-    [XOC_TYPE_IDT]      = "$",
+    // [XOC_TYPE_IDT]      = "$",
     [XOC_TYPE_BLK]      = "#",
     [XOC_TYPE_LBL]      = "%",
     [XOC_TYPE_DVC]      = "@",
+    [XOC_TYPE_ANY]      = "any",
     [XOC_TYPE_I8]       = "i8",
     [XOC_TYPE_I16]      = "i16",
     [XOC_TYPE_I32]      = "i32",
@@ -66,6 +67,12 @@ void type_free(type_t* type) {
     }
     free(type);
     type = NULL;
+}
+
+type_t* type_any(uint64_t key) {
+    type_t* type = type_alc(XOC_TYPE_ANY);
+    type->key = key;
+    return type;
 }
 
 type_t* type_i8(int8_t i8) {
@@ -166,18 +173,18 @@ int key_is_type(uint64_t key) {
 }
 
 
-type_t* type_idt(uint64_t key) {
-    type_t* type = type_alc(XOC_TYPE_IDT);
-    int res = key_is_type(key);
-    if(res != -1) {
-        type->kind = XOC_TYPE_TYP;
-        type->key = key;
-        type->val.I64 = res;
-    } else {
-        type->val.WPtr = key;
-        return type;
-    }
-}
+// type_t* type_idt(uint64_t key) {
+//     type_t* type = type_alc(XOC_TYPE_IDT);
+//     int res = key_is_type(key);
+//     if(res != -1) {
+//         type->kind = XOC_TYPE_TYP;
+//         type->key = key;
+//         type->val.I64 = res;
+//     } else {
+//         type->val.WPtr = key;
+//         return type;
+//     }
+// }
 
 type_t* type_blk(int id) {
     type_t* type = type_alc(XOC_TYPE_BLK);
@@ -238,7 +245,7 @@ void type_info(type_t* type, char* buf, int len, map_t* syms) {
         case XOC_TYPE_TOK:      snprintf(buf, len, "%s", lexer_mnemonic(type->val.WPtr)); break;
         case XOC_TYPE_TMP:      snprintf(buf, len, "%s%ld", type_mnemonic_tbl[type->kind], type->val.WPtr); break;
         case XOC_TYPE_TYP:      snprintf(buf, len, "%s", type_mnemonic_tbl[type->val.I64]); break;
-        case XOC_TYPE_IDT:      snprintf(buf, len, "%s%s", type_mnemonic_tbl[type->kind], map_get(syms, type->val.WPtr)); break;
+        case XOC_TYPE_ANY:      snprintf(buf, len, "%s:%s", map_get(syms, type->key), type_mnemonic_tbl[type->kind]); break;
         case XOC_TYPE_BLK:      snprintf(buf, len, "%s%ld", type_mnemonic_tbl[type->kind], type->val.WPtr); break;
         case XOC_TYPE_LBL:      snprintf(buf, len, "%s%s", type_mnemonic_tbl[type->kind], map_get(syms, type->val.WPtr)); break;
         case XOC_TYPE_DVC:      snprintf(buf, len, "%s%s", type_mnemonic_tbl[type->kind], device_mnemonic_tbl[type->val.WPtr]); break;

@@ -233,12 +233,12 @@ static void parser_selectors(parser_t* prs) {
 static void parser_qualident(parser_t* prs) {
     lexer_t* lex = prs->lex;
     if (lex->cur.kind == XOC_TOK_IDT) {
-        parser_type_set(prs, type_idt(lex->cur.key));
+        parser_type_set(prs, type_any(lex->cur.key));
         lexer_next(lex);
         if (lex->cur.kind == XOC_TOK_COLONCOLON) {
             lexer_next(lex);
             if (lex->cur.kind == XOC_TOK_IDT) {
-                parser_type_set(prs, type_idt(lex->cur.key));
+                parser_type_set(prs, type_any(lex->cur.key));
             }
         }
     }
@@ -336,7 +336,7 @@ static void parser_identlist(parser_t* prs) {
     lexer_t* lex = prs->lex;
     if (lex->cur.kind == XOC_TOK_IDT) {
         uint64_t key = lex->cur.key;
-        type_t* first = type_idt(key);
+        type_t* first = type_any(key);
         prs->cur = first;
         lexer_next(lex);
         if (lex->cur.kind == XOC_TOK_MUL) {
@@ -351,7 +351,7 @@ static void parser_identlist(parser_t* prs) {
             lexer_next(lex);
             if (lex->cur.kind == XOC_TOK_IDT) {
                 key = lex->cur.key;
-                type_t* next = type_idt(key);
+                type_t* next = type_any(key);
                 first->next = next;
                 first = next;
                 lexer_next(lex);
@@ -841,7 +841,7 @@ static void parser_decl_fn(parser_t* prs) {
         }
         if (lex->cur.kind == XOC_TOK_IDT) {
             uint64_t key = lex->cur.key;
-            type_t* idt = type_idt(key);
+            type_t* idt = type_any(key);
             lexer_next(lex);
             if (lex->cur.kind == XOC_TOK_MUL) {
                 lexer_next(lex);
@@ -902,7 +902,7 @@ static void parser_factor(parser_t* prs) {
             case XOC_TOK_REAL_LIT: parser_type_set(prs, type_f64(lex->cur.Real)); break;
             case XOC_TOK_CHAR_LIT: parser_type_set(prs, type_char(lex->cur.Int)); break;
             case XOC_TOK_STR_LIT: parser_type_set(prs, type_str(lex->cur.key)); break;
-            case XOC_TOK_IDT: parser_type_set(prs, type_idt(lex->cur.key)); break;
+            case XOC_TOK_IDT: parser_type_set(prs, type_any(lex->cur.key)); break;
             default: prs->cur = parser_type_set(prs, type_alc(XOC_TYPE_NONE)); break;
         }
     } else if (lex->cur.kind == XOC_TOK_PLUS || 
